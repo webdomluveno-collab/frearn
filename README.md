@@ -1,4 +1,4 @@
-# Frearn (frearn.online)
+# Frearn (freearn.online)
 
 Global rewards platform — pre-launch MVP. Earn by completing surveys (later: offers, games, research, app testing, microtasks). Transparent rewards, ledger-based wallet, provider-neutral architecture.
 
@@ -29,7 +29,7 @@ npm run dev      # http://localhost:3000
 | `BITLABS_APP_TOKEN` / `BITLABS_SECRET` | Server-only future credentials |
 | `BITLABS_CALLBACK_ENABLED` | Keep `false` until approved + spec implemented |
 | `ADMIN_EMAILS` | Comma-separated admin allowlist |
-| `NEXT_PUBLIC_SUPPORT_EMAIL` | Defaults to `support@frearn.online` |
+| `NEXT_PUBLIC_SUPPORT_EMAIL` | Defaults to `support@freearn.online` |
 
 ## 4. Local development
 
@@ -97,5 +97,5 @@ Notes for the static version:
 - [ ] Persistent rate limiting (current `lib/rate-limit.ts` is in-memory placeholder).
 - [ ] Callback HMAC verification + idempotency tests; never trust client reward amounts.
 - [ ] Raw provider payloads never exposed to users; admin-only.
-- [ ] Support email / domain set (`support@frearn.online` — configured).
+- [ ] Support email / domain set (`support@freearn.online` — configured).
 - [ ] No secrets with `NEXT_PUBLIC_` prefix except anon key + URL.

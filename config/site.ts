@@ -18,9 +18,11 @@ export const siteConfig = {
   logoMark: "F", // temporary wordmark monogram
 
   // -- Domains / contact --
-  url: process.env.NEXT_PUBLIC_SITE_URL ?? "https://frearn.online",
+  // NOTE: brand is "Frearn", but the currently owned domain is freearn.online.
+  // If frearn.online is acquired later, update url + supportEmail here.
+  url: process.env.NEXT_PUBLIC_SITE_URL ?? "https://freearn.online",
   supportEmail:
-    process.env.NEXT_PUBLIC_SUPPORT_EMAIL ?? "support@frearn.online",
+    process.env.NEXT_PUBLIC_SUPPORT_EMAIL ?? "support@freearn.online",
 
   // -- Theme tokens (mirrored as CSS variables in app/globals.css) --
   brand: {
