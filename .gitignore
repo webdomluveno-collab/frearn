@@ -4,3 +4,4 @@ out/
 project-static.zip
 .export-bak/
 .env*.local
+.DS_Store
