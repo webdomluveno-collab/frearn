@@ -1,0 +1,116 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/*
+ * DESIGN TOKENS — rebrand by editing :root / .dark values + --brand-2 (gradient partner).
+ * Accent pair: --brand (primary CTA) → --brand-2 (gradient end). Ink = text color.
+ */
+:root {
+  --background: 0 0% 100%;
+  --foreground: 222 47% 11%;
+  --card: 0 0% 100%;
+  --card-foreground: 222 47% 11%;
+  --muted: 220 14% 96%;
+  --muted-foreground: 220 9% 40%;
+  --border: 220 13% 91%;
+  --ink: 222 47% 11%;
+  --brand: 243 75% 59%;
+  --brand-foreground: 0 0% 100%;
+  --brand-2: 269 80% 62%;
+  --accent: 243 75% 59%;
+  --accent-foreground: 0 0% 100%;
+  --radius: 1rem;
+  --font-sans: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-display: "Sora", "Inter", ui-sans-serif, system-ui, sans-serif;
+}
+
+.dark {
+  --background: 222 47% 6%;
+  --foreground: 210 40% 96%;
+  --card: 222 47% 9%;
+  --card-foreground: 210 40% 96%;
+  --muted: 217 33% 13%;
+  --muted-foreground: 215 20% 65%;
+  --border: 217 33% 17%;
+  --ink: 210 40% 96%;
+  --brand: 234 89% 72%;
+  --brand-foreground: 222 47% 7%;
+  --brand-2: 265 85% 70%;
+  --accent: 234 89% 72%;
+  --accent-foreground: 222 47% 7%;
+}
+
+@layer base {
+  * { @apply border-border; }
+  body { @apply bg-background text-foreground antialiased; font-family: var(--font-sans); }
+  ::selection { background: hsl(var(--brand) / 0.22); }
+}
+
+@layer utilities {
+  .font-display { font-family: var(--font-display); }
+
+  .text-gradient {
+    background: linear-gradient(100deg, hsl(var(--brand)), hsl(var(--brand-2)));
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+
+  .btn-gradient {
+    background: linear-gradient(100deg, hsl(var(--brand)), hsl(var(--brand-2)));
+    box-shadow: 0 8px 24px -8px hsl(var(--brand) / 0.55), inset 0 1px 0 rgb(255 255 255 / 0.22);
+  }
+  .btn-gradient:hover {
+    box-shadow: 0 12px 32px -8px hsl(var(--brand) / 0.65), inset 0 1px 0 rgb(255 255 255 / 0.22);
+    filter: brightness(1.06);
+  }
+
+  .glass {
+    background: hsl(var(--card) / 0.72);
+    backdrop-filter: blur(16px) saturate(1.4);
+    -webkit-backdrop-filter: blur(16px) saturate(1.4);
+  }
+
+  .bg-grid {
+    background-image:
+      linear-gradient(to right, hsl(var(--foreground) / 0.055) 1px, transparent 1px),
+      linear-gradient(to bottom, hsl(var(--foreground) / 0.055) 1px, transparent 1px);
+    background-size: 44px 44px;
+  }
+  .mask-fade-y {
+    -webkit-mask-image: radial-gradient(ellipse 90% 70% at 50% 0%, black 35%, transparent 78%);
+    mask-image: radial-gradient(ellipse 90% 70% at 50% 0%, black 35%, transparent 78%);
+  }
+
+  .card-shadow { box-shadow: 0 1px 3px rgba(16,24,40,.07), 0 16px 40px -20px rgba(16,24,40,.25); }
+  .card-lift { transition: transform .35s cubic-bezier(.22,1,.36,1), box-shadow .35s, border-color .35s; }
+  .card-lift:hover { transform: translateY(-4px); box-shadow: 0 2px 6px rgba(16,24,40,.08), 0 24px 48px -20px hsl(var(--brand) / .35); border-color: hsl(var(--brand) / .35); }
+
+  .ring-conic {
+    background: conic-gradient(from 180deg, hsl(var(--brand) / .5), hsl(var(--brand-2) / .5), hsl(var(--brand) / .12), hsl(var(--brand) / .5));
+  }
+
+  /* Scroll reveal — hidden ONLY when JS is confirmed running (.js on <html>).
+     Without JS (blocked/failed hydration) all content stays visible. */
+  .js .reveal { opacity: 0; transform: translateY(26px); transition: opacity .7s ease, transform .7s cubic-bezier(.22,1,.36,1); will-change: opacity, transform; }
+  .js .reveal-visible { opacity: 1; transform: none; }
+
+  /* Floating demo cards */
+  @keyframes floaty { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-10px); } }
+  .animate-floaty { animation: floaty 6s ease-in-out infinite; }
+  .animate-floaty-slow { animation: floaty 8s ease-in-out 1.2s infinite; }
+
+  @keyframes pulse-dot { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: .55; transform: scale(.8); } }
+  .animate-pulse-dot { animation: pulse-dot 2s ease-in-out infinite; }
+
+  @keyframes orb-drift { 0%, 100% { transform: translate(0, 0) scale(1); } 50% { transform: translate(30px, -20px) scale(1.08); } }
+  .animate-orb { animation: orb-drift 12s ease-in-out infinite; }
+
+  @keyframes shimmer { from { background-position: 200% 0; } to { background-position: -200% 0; } }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+  .reveal { opacity: 1; transform: none; }
+}
