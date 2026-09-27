@@ -16,20 +16,25 @@ export const CPX_MAX_CENTS = 1_000_00 * 100;
 export const CPX_MAX_ID_LENGTH = 128;
 
 /**
- * Parse a decimal dollar string ("1.40") into EXACT integer cents (140).
+ * Parse a decimal dollar string ("1.40", "0.3500") into EXACT integer cents.
  * String math only — never parseFloat — so money is never subject to float error.
+ * Up to 6 decimals accepted, rounded half-up (CPX sends up to 4).
  * Returns null for malformed, negative, over-precise, or unreasonably large values.
  */
 export function parseDecimalToCents(input: string): number | null {
   if (typeof input !== "string") return null;
   const s = input.trim();
-  if (!/^\d+(\.\d{1,2})?$/.test(s)) return null;
+  if (!/^\d+(\.\d{1,6})?$/.test(s)) return null;
   const dot = s.indexOf(".");
   const whole = dot === -1 ? s : s.slice(0, dot);
   const frac = dot === -1 ? "" : s.slice(dot + 1);
   if (whole.length > 7) return null; // > $9,999,999 guard before math
-  const cents = Number(whole) * 100 + Number((frac + "00").slice(0, 2));
-  if (!Number.isSafeInteger(cents) || cents > CPX_MAX_CENTS) return null;
+  // Exact thousandths from the first 3 fraction digits, zero-padded;
+  // round half-up to cents (equivalent to true half-up for non-negative values).
+  const thousandths = Number(whole) * 1000 + Number((frac + "000").slice(0, 3));
+  if (!Number.isSafeInteger(thousandths)) return null;
+  const cents = Math.floor((thousandths + 5) / 10);
+  if (cents > CPX_MAX_CENTS) return null;
   return cents;
 }
 

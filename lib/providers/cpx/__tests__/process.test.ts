@@ -109,7 +109,7 @@ describe("processCpxPostback", () => {
   });
 
   it("5. malformed amounts are rejected by shape validation", async () => {
-    for (const bad of ["1.405", "-2", "abc", "", "1,40", "99999999.99"]) {
+    for (const bad of ["1.1234567", "-2", "abc", "", "1,40", "99999999.99"]) {
       expect(validatePostbackShape(params({ amountLocal: bad })).ok).toBe(false);
     }
     expect(validatePostbackShape(params({ amountUsd: "NaN" })).ok).toBe(false);

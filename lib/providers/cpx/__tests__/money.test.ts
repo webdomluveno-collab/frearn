@@ -11,8 +11,18 @@ describe("parseDecimalToCents (exact, no floats)", () => {
     expect(parseDecimalToCents(" 1.40 ")).toBe(140);
   });
 
+  it("accepts CPX 3-4 decimal precision and rounds half-up exactly", () => {
+    expect(parseDecimalToCents("0.3500")).toBe(35);
+    expect(parseDecimalToCents("0.50")).toBe(50);
+    expect(parseDecimalToCents("1.405")).toBe(141); // half-up, documented
+    expect(parseDecimalToCents("1.404")).toBe(140);
+    expect(parseDecimalToCents("0.005")).toBe(1);
+    expect(parseDecimalToCents("0.004")).toBe(0);
+    expect(parseDecimalToCents("2.345678")).toBe(235); // 6 decimals ok
+  });
+
   it("rejects float-dangerous and malformed input", () => {
-    expect(parseDecimalToCents("1.405")).toBeNull; // over-precise
+    expect(parseDecimalToCents("1.1234567")).toBeNull; // >6 decimals
     expect(parseDecimalToCents("")).toBeNull;
     expect(parseDecimalToCents("abc")).toBeNull;
     expect(parseDecimalToCents("-1.40")).toBeNull; // negative
