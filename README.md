@@ -151,8 +151,8 @@ Expert postbacks intentionally **not** configured yet: Screen Out, Bonus/Rating,
 Event Canceled.
 
 Success responses return plain-text `1` (HTTP 200); rejections return `0` with
-4xx/5xx. Signature = `MD5("{trans_id}{postback_secret}")`, compared
-timing-safe. Rewards use `amount_local` (CPX already applies the 0.70 currency
+4xx/5xx. Signature = `MD5("{trans_id}-{postback_secret}")` per the CPX dashboard
+Postback Settings, compared timing-safe. Rewards use `amount_local` (CPX already applies the 0.70 currency
 factor); `amount_usd` is stored as publisher revenue for margin accounting.
 
 ### 9.5 Reward assumptions (CPX panel: factor 0.70 / bonus 1.00)

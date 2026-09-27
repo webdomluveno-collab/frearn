@@ -72,7 +72,7 @@ describe("POST /api/providers/cpx/postback (HTTP behavior)", () => {
     delete process.env.SUPABASE_SERVICE_ROLE_KEY;
     delete process.env.NEXT_PUBLIC_SUPABASE_URL;
     const transId = "t-route-valid";
-    const hash = createHash("md5").update(`${transId}${SECRET}`, "utf8").digest("hex");
+    const hash = createHash("md5").update(`${transId}-${SECRET}`, "utf8").digest("hex");
     const res = await GET(
       req(`?status=1&trans_id=${transId}&user_id=${UID}&amount_local=1.40&amount_usd=2.00&offer_id=9&hash=${hash}`)
     );

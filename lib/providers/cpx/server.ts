@@ -6,11 +6,10 @@ import { createHash, timingSafeEqual } from "node:crypto";
  * CPX Research — SERVER-ONLY. Contains secret handling.
  * Never import this module (directly or transitively) from client components.
  *
- * !!! CONFIRM WITH CPX DASHBOARD / INTEGRATION DOCS BEFORE GO-LIVE !!!
- * The two hash formulas below follow the integration brief and common CPX practice:
+ * !!! CPX publisher dashboard (Postback Settings), authoritative definition:
  *   wall:     MD5("{ext_user_id}-{app_secure_hash}")
- *   postback: MD5("{trans_id}{app_secure_hash}")
- * If CPX's test tool rejects either value, adjust ONLY the two functions below.
+ *   postback: MD5("{trans_id}-{app_secure_hash}")
+ * Do not alter these formulas without updated CPX documentation.
  */
 
 export const CPX_WALL_BASE_URL = "https://offers.cpx-research.com/index.php";
@@ -71,11 +70,11 @@ export function buildSurveyWallUrl(input: BuildWallInput): string {
   return `${CPX_WALL_BASE_URL}?${params.toString()}`;
 }
 
-/** Expected postback signature. CONFIRM formula with CPX docs. */
+/** Expected postback signature per CPX Postback Settings: MD5("{transId}-{secret}"). */
 export function expectedPostbackHash(transId: string): string {
   const secret = cpxPostbackSecret();
   if (!secret) throw new Error("CPX is not configured (CPX_APP_SECURE_HASH).");
-  return createHash("md5").update(`${transId}${secret}`, "utf8").digest("hex");
+  return createHash("md5").update(`${transId}-${secret}`, "utf8").digest("hex");
 }
 
 /** Timing-safe postback authenticity check. Returns false when unconfigured (fail closed). */

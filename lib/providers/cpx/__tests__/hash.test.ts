@@ -37,12 +37,16 @@ describe("CPX hashes (deterministic test secret)", () => {
     await withSecret(TEST_SECRET, async () => {
       const { expectedPostbackHash, verifyPostbackHash } = await import("../server");
       const transId = "cpx-txn-abc-123";
-      const good = createHash("md5").update(`${transId}${TEST_SECRET}`, "utf8").digest("hex");
+      // Authoritative CPX formula: MD5("{trans_id}-{secret}")
+      const good = createHash("md5").update(`${transId}-${TEST_SECRET}`, "utf8").digest("hex");
       expect(expectedPostbackHash(transId)).toBe(good);
       expect(verifyPostbackHash(transId, good)).toBe(true);
       expect(verifyPostbackHash(transId, good.toUpperCase())).toBe(true);
       expect(verifyPostbackHash(transId, "0".repeat(32))).toBe(false);
       expect(verifyPostbackHash("other-txn", good)).toBe(false);
+      // The old non-hyphenated formula must NOT verify.
+      const legacy = createHash("md5").update(`${transId}${TEST_SECRET}`, "utf8").digest("hex");
+      expect(verifyPostbackHash(transId, legacy)).toBe(false);
     });
   });
 
