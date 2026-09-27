@@ -7,6 +7,8 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input, Label } from "@/components/ui/input";
 import { getSupabaseBrowser, isSupabaseConfigured } from "@/lib/auth/client";
+import { siteConfig } from "@/config/site";
+import { COUNTRIES, isValidCountryCode, normalizeCountryCode } from "@/lib/countries";
 
 function AuthShell({ title, sub, children }: { title: string; sub: string; children: ReactNode }) {
   return (
@@ -87,16 +89,21 @@ export function RegisterForm() {
     e.preventDefault();
     if (!configured) return;
     setError(null);
+    // Country must be a 2-letter ISO code (char(2) column) — never a full name.
+    const countryCode = normalizeCountryCode(country);
+    if (!isValidCountryCode(countryCode)) {
+      setError("Please select your country from the list.");
+      return;
+    }
     setLoading(true);
     try {
       const supabase = getSupabaseBrowser();
-      const siteUrl = window.location.origin;
       const { data, error: signUpError } = await supabase.auth.signUp({
         email: email.trim(),
         password,
         options: {
-          data: { country: country.trim() },
-          emailRedirectTo: `${siteUrl}/auth/callback?next=/dashboard`,
+          data: { country: countryCode },
+          emailRedirectTo: `${siteConfig.url}/auth/callback?next=/dashboard`,
         },
       });
       if (signUpError) {
@@ -135,7 +142,21 @@ export function RegisterForm() {
         <FormError message={error} />
         <div><Label htmlFor="r-email">Email</Label><Input id="r-email" type="email" autoComplete="email" required value={email} onChange={(e) => setEmail(e.target.value)} /></div>
         <div><Label htmlFor="r-pass">Password</Label><Input id="r-pass" type="password" autoComplete="new-password" required minLength={8} value={password} onChange={(e) => setPassword(e.target.value)} /></div>
-        <div><Label htmlFor="r-country">Country</Label><Input id="r-country" placeholder="e.g. Germany" autoComplete="country-name" required value={country} onChange={(e) => setCountry(e.target.value)} /></div>
+        <div>
+          <Label htmlFor="r-country">Country</Label>
+          <select
+            id="r-country"
+            required
+            value={country}
+            onChange={(e) => setCountry(e.target.value)}
+            className="flex h-10 w-full rounded-xl border border-border bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 disabled:opacity-50"
+          >
+            <option value="" disabled>Select your country</option>
+            {COUNTRIES.map((c) => (
+              <option key={c.code} value={c.code}>{c.name}</option>
+            ))}
+          </select>
+        </div>
         <label className="flex items-start gap-2 text-sm text-muted-foreground">
           <input type="checkbox" required className="mt-1" /> I accept the <Link className="underline" href="/terms">Terms</Link> and <Link className="underline" href="/privacy">Privacy Policy</Link>.
         </label>
@@ -161,7 +182,7 @@ export function ForgotForm() {
     try {
       const supabase = getSupabaseBrowser();
       const { error: resetError } = await supabase.auth.resetPasswordForEmail(email.trim(), {
-        redirectTo: `${window.location.origin}/auth/callback?next=/reset-password`,
+        redirectTo: `${siteConfig.url}/auth/callback?next=/reset-password`,
       });
       if (resetError) {
         setError(resetError.message);
