@@ -2,7 +2,12 @@ import "server-only";
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { getSupabaseAdmin } from "@/lib/auth/server";
-import { ADGEM_PROVIDER_KEY, type AdgemEventInsert, type AdgemStore } from "@/lib/providers/adgem/process";
+import {
+  ADGEM_PROVIDER_KEY,
+  type AdgemEventInsert,
+  type AdgemLedgerInsert,
+  type AdgemStore,
+} from "@/lib/providers/adgem/process";
 
 /** Postgres unique-violation code. Uniqueness is enforced by the DB, not by app checks. */
 const UNIQUE_VIOLATION = "23505";
@@ -59,6 +64,43 @@ export class SupabaseAdgemStore implements AdgemStore {
       userId: (data.user_id as string | null) ?? null,
       conversionId: typeof raw.conversion_id === "string" ? raw.conversion_id : "",
     };
+  }
+
+  async findRewardByTxnRef(txnRef: string) {
+    const { data, error } = await this.db
+      .from("ledger_transactions")
+      .select("id,user_id,amount_cents")
+      .eq("provider", ADGEM_PROVIDER_KEY)
+      .eq("provider_transaction_id", txnRef)
+      .eq("type", "offer_reward")
+      .maybeSingle();
+    if (error) throw new Error(`reward lookup failed: ${error.message}`);
+    if (!data) return null;
+    return { id: data.id as string, userId: data.user_id as string, amountCents: data.amount_cents as number };
+  }
+
+  async insertLedgerReward(row: AdgemLedgerInsert) {
+    const { data, error } = await this.db
+      .from("ledger_transactions")
+      .insert({
+        user_id: row.userId,
+        type: row.type,
+        status: row.status,
+        amount_cents: row.amountCents,
+        description: row.description,
+        idempotency_key: row.idempotencyKey,
+        provider: row.provider,
+        provider_transaction_id: row.providerTransactionId,
+        publisher_revenue_cents: row.publisherRevenueCents,
+        metadata: row.metadata,
+      })
+      .select("id")
+      .single();
+    if (error) {
+      if (isUniqueViolation(error)) return { id: "", inserted: false };
+      throw new Error(`ledger insert failed: ${error.message}`);
+    }
+    return { id: data.id as string, inserted: true };
   }
 
   async markEventProcessed(requestId: string, processingStatus: string, error: string | null) {

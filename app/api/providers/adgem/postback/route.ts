@@ -10,8 +10,8 @@ import { SupabaseAdgemStore } from "@/lib/db/adgem-store";
  *
  * Pipeline: rate limit → configured? → read EXACT RAW body → HMAC-SHA256
  * signature check → JSON parse → shape validation → user lookup →
- * idempotent event store (verified rewards are HELD, never credited —
- * see lib/providers/adgem/process.ts) → acknowledge.
+ * ledger-anchored idempotent credit (verified rewards are CREDITED exactly
+ * once — see lib/providers/adgem/process.ts) → acknowledge.
  * FAILS CLOSED at every stage.
  *
  * Acknowledgement mirrors AdGem's own reference behavior: HTTP 200 with an
@@ -61,14 +61,16 @@ export async function POST(req: Request) {
       ...(result.outcome === "rejected" ? { error: result.error } : {}),
     });
     switch (result.outcome) {
-      case "held":
+      case "credited":
       case "recorded":
       case "duplicate":
         return empty(200);
       case "rejected":
-        // unsupported_conversion_type is a shape-level refusal;
-        // unknown_player / request_id_mismatch may be transient or hostile.
-        return empty(result.error === "unsupported_conversion_type" ? 400 : 422);
+        // unsupported_conversion_type / invalid_amount are refusal-level;
+        // unknown_player / mismatches may be transient or hostile.
+        return empty(
+          result.error === "unsupported_conversion_type" || result.error === "invalid_amount" ? 400 : 422
+        );
     }
   } catch {
     console.error("[adgem] processing error");

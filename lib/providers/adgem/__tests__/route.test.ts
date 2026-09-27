@@ -136,6 +136,31 @@ describe("POST /api/providers/adgem/postback (HTTP behavior)", () => {
     }
   });
 
+  it("400 on non-integer / negative / oversize amounts with valid signature", async () => {
+    enable();
+    try {
+      const base = {
+        request_id: "req-amt",
+        timestamp: 1748365518,
+        data: {
+          conversion_id: "conv-amt",
+          player_id: UID,
+          conversion_type: "reward",
+          payout_cents: 150,
+        },
+      };
+      // Zero passes shape but is refused at credit time (see process tests);
+      // without a database every valid-shape request ends in 500 here.
+      for (const amount of [1.5, -3, 1_000_001]) {
+        const raw = JSON.stringify({ ...base, data: { ...base.data, amount } });
+        const res = await POST(post(raw, sign(raw)));
+        expect(res.status).toBe(400);
+      }
+    } finally {
+      restore();
+    }
+  });
+
   it("500 (fail closed, retryable) when signature is valid but no database exists", async () => {
     enable();
     try {

@@ -218,10 +218,10 @@ Operational gotchas learned the hard way (Sep 2026):
   Either create the zone first (Team → Domains → Add domain) or keep external
   DNS (`A @ → 75.2.60.5`, `CNAME www → <site>.netlify.app`).
 
-## 10. AdGem Server Postback v3 receiver (no crediting yet)
+## 10. AdGem Server Postback v3 receiver (crediting LIVE)
 
-AdGem is being added as a second provider. Only the backend postback receiver
-is implemented — no iframe/offerwall, no rewards. CPX is untouched.
+AdGem is the second provider. Only the backend postback receiver is
+implemented — no iframe/offerwall. CPX is untouched.
 
 ### 10.1 What it does
 
@@ -231,58 +231,73 @@ is implemented — no iframe/offerwall, no rewards. CPX is untouched.
 2. Read the EXACT RAW body (`await req.text()`), HMAC-SHA256 hex over raw bytes,
    timing-safe compare with `Signature` → 401 on mismatch (mirrors AdGem's own
    reference code, which returns 200-empty on success, 401 on failure).
-3. Strict shape validation → 400. Unknown/unsupported `conversion_type` → 400.
+3. Strict shape validation → 400 (`conversion_type` must be present;
+   `amount` must be an integer ≥ 0 within cap; only `reward`/`install` supported).
 4. `player_id` must be an existing Supabase UUID (never created) → 422 if unknown.
-5. Verified events are stored ONCE in `provider_events` (`provider='adgem'`,
-   `external_event_id=request_id`, unique) → 200 empty. Retries → 200 duplicates.
-6. **No ledger row is ever written.** Verified `reward` events are stored with
-   `processing_status='held'`; `install` events as `'processed'` (non-monetary).
-   DB/internal failure → 500 (AdGem retries; nothing is falsely marked processed).
+5. Verified `reward` events are CREDITED exactly once (ledger-anchored
+   idempotency, §10.3) → 200 empty. `install` events are recorded
+   non-monetarily. Retries → 200 duplicates. DB failure → 500 (safe retry).
 
-### 10.2 Why no crediting (authoritative)
+### 10.2 Confirmed money mapping (publisher property config)
 
-Per AdGem's publisher docs (docs.adgem.com, "Server-to-Server Postbacks (v3)"):
-`data.amount` is "**the amount of virtual currency** to reward the user" while
-`data.payout` is "the decimal amount of revenue earned". Freearn's ledger is USD
-cents and there is no publisher-confirmed coin→cent rate, so crediting
-`amount` as cents would be wrong (in the documented example, `amount: 500`
-against `payout_cents: 150` proves the units differ). `payout_cents` is stored
-as `publisher_revenue_cents` (audit/margin only) and is NEVER used as the user
-reward. Enabling crediting requires a confirmed conversion rule + a new explicit
-task — do not invent one.
+Property: Virtual Currency cent/cents, Currency Multiplier 70, Rounded.
+AdGem defines the multiplier as "amount of virtual currency to give user for
+every $1 earned", so for THIS property `data.amount` arrives as whole USD
+cents of the user's reward: `amount:35` → **+35¢**, `amount:70` → **+70¢**.
+Freearn applies NO further math (no second multiplier, no division) — locked
+by unit tests and a source guard. `data.payout_cents` is stored as
+`publisher_revenue_cents` (audit/margin only) and NEVER determines the balance.
+Ledger rows: `provider='adgem'`, `type='offer_reward'`, `status='confirmed'`,
+`provider_transaction_id = conversion_id[:goal_id]`. Descriptions name the
+offer/goal (e.g. `Offer reward (AdGem Coin Master — Reach Level 10)`).
+If the property configuration ever changes, this mapping MUST be revisited.
 
-### 10.3 Idempotency design
+### 10.3 Idempotency + crash/race safety (ledger-anchored)
 
-- Transport: `UNIQUE(provider, external_event_id)` on `request_id` — exact
-  redelivery → `duplicate`, acknowledged 200.
-- Request-id reuse across different conversions/users → rejected + fraud flag.
-- Business: no ledger writes exist, so double-credit is structurally impossible.
-  When crediting is later enabled, ledger keys MUST be
-  `adgem:{conversion_id}:{goal_id}:reward` (never bare `offer_id`, never bare
-  `conversion_id` alone) so multi-goal offers are not collapsed — see code comments.
-- No migration was needed: all columns used are generic (`provider`,
-  `provider_transaction_id`, `metadata`, `publisher_revenue_cents`).
+- Money verdicts consult the LEDGER first, never the event row alone:
+  existing reward (same user) → duplicate; missing reward → credit.
+- Deterministic keys: `adgem:{conversion_id}[:{goal_id}]:reward` plus the DB
+  composite unique `(provider, provider_transaction_id, type)` — concurrent
+  duplicates collapse on constraints; losers re-read and acknowledge.
+- A crash between event insert and ledger insert resolves to a CREDIT on
+  retry, never to a silent loss: the event row alone can never finalize.
+- Event marked `processed` only AFTER the ledger write succeeds; a throw
+  after a successful credit still converges via retry → duplicate.
+- Distinct goals/conversions never collapse (never keyed by bare `offer_id`).
+- Request-id reuse across different conversions → rejected + fraud flag.
+- No migration needed: existing generic columns + constraints suffice.
 
-### 10.4 Deliberately NOT implemented (needs AdGem-side confirmation)
+### 10.4 Historical `held` events (pre-mapping receiver)
 
-- Credit mapping (coin→cent rate) — needs publisher/AdGem confirmation.
-- Reversals/chargebacks — no reversal semantics found in the v3 docs; only
-  `reward` (monetary-track) and `install` (non-monetary) conversion types exist.
-- Timestamp replay window — docs specify none; relying on signature + idempotency.
+The first AdGem implementation stored verified rewards as `held` without
+crediting because the amount unit was unconfirmed. Those rows (if any exist)
+are LEFT UNTOUCHED — no backfill, no auto-credit, no mutation. To audit:
+`select * from provider_events where provider='adgem' and processing_status='held'`.
+
+### 10.5 Reversals — none defined
+
+Re-fetched docs.adgem.com "Server-to-Server Postbacks (v3)" during this task:
+zero mentions of chargeback/reversal/refund/cancel/clawback. Only `reward`
+(monetary) and `install` (non-monetary) conversion types exist. Unknown types
+are rejected with no value. Unchanged from the previous implementation.
+
+### 10.6 Deliberately NOT implemented
+
 - IP whitelisting — docs recommend it; needs the static IP from AdGem support
-  (`support@adgem.com`) before an `ADGEM_WHITELIST_IP` check can be added.
+  before an `ADGEM_WHITELIST_IP` check can be added.
+- Timestamp replay window — docs specify none; relying on signature + idempotency.
 
-### 10.5 Test locally
+### 10.7 Test locally
 
 ```bash
-npm test   # AdGem: signature / validation / process / route suites
+npm test   # AdGem: signature / validation / process / route / guards + wallet suites
 ```
 
 End-to-end (needs Supabase keys + `ADGEM_POSTBACK_KEY` in `.env.local`):
 sign a JSON body with HMAC-SHA256 (hex) using the key, POST to
 `/api/providers/adgem/postback` with header `Signature: <hex>`,
-`player_id` = a real user UUID → `200` empty + one `provider_events` row
-(`processing_status='held'`, `user_reward_cents=0`). Replay → `200`, still one row.
+`player_id` = a real user UUID, `conversion_type: "reward"`, `amount: 35` →
+`200` empty + one confirmed `offer_reward` (+35¢). Replay → `200`, still one row.
 
 ## 11. Security considerations before production
 

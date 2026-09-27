@@ -69,8 +69,15 @@ describe("validateAdgemBody", () => {
     expect(validateAdgemBody(body({}, { amount: "500" })).ok).toBe(false);
     expect(validateAdgemBody(body({}, { amount: -1 })).ok).toBe(false);
     expect(validateAdgemBody(body({}, { amount: NaN })).ok).toBe(false);
+    expect(validateAdgemBody(body({}, { amount: 1.5 })).ok).toBe(false); // Rounded config: integers only
+    expect(validateAdgemBody(body({}, { amount: 1_000_001 })).ok).toBe(false); // over cap
     expect(validateAdgemBody(body({}, { payout_cents: 1.5 })).ok).toBe(false);
     expect(validateAdgemBody(body({}, { payout_cents: -10 })).ok).toBe(false);
+  });
+
+  it("accepts boundary amounts (0 for install, cap maximum)", () => {
+    expect(validateAdgemBody(body({}, { amount: 0 })).ok).toBe(true);
+    expect(validateAdgemBody(body({}, { amount: 1_000_000 })).ok).toBe(true);
   });
 
   it("tolerates absent optional fields", () => {

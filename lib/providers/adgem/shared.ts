@@ -14,13 +14,23 @@
  *   tracking only, never rewarded) for install goals.
  * - data.goal_id: "the unique ID of each goal in a campaign/offer"
  *
- * Because `amount` is denominated in the publisher's virtual currency and
- * Freearn's ledger is USD cents with no publisher-confirmed coin→cent rate,
- * verified reward events are stored durably but NEVER credited (see process.ts).
+ * CONFIRMED MONEY MAPPING (publisher property config: Virtual Currency
+ * cent/cents, Currency Multiplier 70, Decimal Values Rounded): AdGem defines
+ * the multiplier as "amount of virtual currency to give user for every $1
+ * earned", so for THIS property `data.amount` arrives as whole USD cents of
+ * the user's reward (amount:35 → +35¢). Freearn applies NO further math —
+ * no second multiplier, no division. If the property configuration ever
+ * changes, this mapping MUST be revisited before crediting.
  */
 
 export const ADGEM_SUPPORTED_CONVERSION_TYPES = ["reward", "install"] as const;
 export type AdgemConversionType = (typeof ADGEM_SUPPORTED_CONVERSION_TYPES)[number];
+
+/**
+ * Safety cap for a single credited conversion: $10,000 (mirrors the CPX cap).
+ * Anything larger is rejected as malformed/abuse rather than credited.
+ */
+export const ADGEM_MAX_REWARD_CENTS = 1_000_000;
 
 /** Identifier charset (mirrors CPX convention): short, no whitespace/control chars. */
 export function isReasonableId(value: unknown): value is string {
@@ -58,9 +68,29 @@ export interface AdgemPostbackBody {
   allGoalsCompleted: boolean | null;
 }
 
-function toFiniteNonNegativeNumber(value: unknown): number | null {
+/**
+ * Credit-grade amount check: the Rounded property config sends whole units,
+ * so only integers are accepted for crediting. Returns null otherwise.
+ */
+function toCreditableAmount(value: unknown): number | null {
   if (typeof value !== "number" || !Number.isFinite(value) || value < 0) return null;
+  if (!Number.isInteger(value)) return null;
   return value;
+}
+
+/**
+ * Stable conversion reference for ledger traceability + idempotency.
+ * Composite (conversion:goal) so distinct goals of one conversion never
+ * collapse — NEVER use bare offer_id. Mirrors the DB composite unique index
+ * (provider, provider_transaction_id, type).
+ */
+export function adgemTxnRef(conversionId: string, goalId: string | null): string {
+  return goalId ? `${conversionId}:${goalId}` : conversionId;
+}
+
+/** Deterministic idempotency key for one AdGem reward credit. */
+export function adgemRewardKey(conversionId: string, goalId: string | null): string {
+  return `adgem:${adgemTxnRef(conversionId, goalId)}:reward`;
 }
 
 function toOptionalId(value: unknown): string | null {
@@ -93,8 +123,9 @@ export function validateAdgemBody(input: unknown): { ok: true; body: AdgemPostba
   if (typeof d.conversion_type !== "string" || d.conversion_type === "") {
     return { ok: false, error: "missing_conversion_type" };
   }
-  const amount = toFiniteNonNegativeNumber(d.amount);
+  const amount = toCreditableAmount(d.amount);
   if (amount === null) return { ok: false, error: "invalid_amount" };
+  if (amount > ADGEM_MAX_REWARD_CENTS) return { ok: false, error: "amount_out_of_range" };
   let payoutCents = 0;
   if (d.payout_cents !== undefined && d.payout_cents !== null) {
     if (typeof d.payout_cents !== "number" || !Number.isInteger(d.payout_cents) || d.payout_cents < 0) {
