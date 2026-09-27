@@ -203,6 +203,21 @@ The postback endpoint needs a Node server — do NOT deploy the static export
 `CPX_APP_SECURE_HASH`, `CPX_POSTBACK_ENABLED=true`, Supabase keys,
 `ADMIN_EMAILS`, `MOCK_PROVIDER_ENABLED=false`.
 
+Operational gotchas learned the hard way (Sep 2026):
+
+- **One site per domain.** Two Netlify sites claiming `freearn.online` meant the
+  domain was served by a stale duplicate (`freearnofficial`) with edge access
+  control on — every CPX postback died with HTTP 401 before reaching our code
+  (our endpoint has no 401 path; a bad signature is 403). Keep exactly one
+  production site per domain and delete accidental duplicates.
+- **No access control on the postback path.** Netlify password/edge-access
+  protection returns 401 to server-to-server callers that cannot log in.
+  The production site must be publicly reachable.
+- **The domain must actually resolve.** Delegating to Netlify nameservers
+  without a Netlify DNS zone leaves the domain completely dark (no DNS answer).
+  Either create the zone first (Team → Domains → Add domain) or keep external
+  DNS (`A @ → 75.2.60.5`, `CNAME www → <site>.netlify.app`).
+
 ## 10. Security considerations before production
 
 - [ ] Legal review of `/privacy` + `/terms` (placeholders marked TODO).
