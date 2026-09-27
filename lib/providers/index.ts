@@ -12,7 +12,7 @@ export function getProvider(key: string): OpportunityProvider | undefined {
   return providers[key];
 }
 
-/** SurveyWall registry (CPX today; TheoremReach etc. later). UI never hardcodes providers. */
+/** SurveyWall registry (CPX surveys; AdGem offers & games; more later). UI never hardcodes providers. */
 const surveyWalls: Record<string, SurveyWallProvider> = {
   // NOTE: reads server env directly instead of importing ./cpx/server so this
   // module stays importable anywhere. In client bundles non-public env vars
@@ -23,6 +23,13 @@ const surveyWalls: Record<string, SurveyWallProvider> = {
     label: "Surveys",
     isConfigured: () =>
       Boolean(process.env.CPX_APP_SECURE_HASH) && process.env.CPX_POSTBACK_ENABLED === "true",
+  },
+  // AdGem wall URL carries no secret, so there is nothing server-side to
+  // configure; availability/emptiness is handled gracefully by the wall UI.
+  adgem: {
+    key: "adgem",
+    label: "Offers & Games",
+    isConfigured: () => true,
   },
 };
 

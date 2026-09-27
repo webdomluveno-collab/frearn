@@ -27,3 +27,20 @@ describe("AdGem 70-multiplier is never applied a second time", () => {
     // Behavioral proof lives in process.test.ts: amount=35 → +35¢, amount=70 → +70¢ (not 4900¢).
   });
 });
+
+describe("AdGem wall implementation cannot leak server secrets", () => {
+  const files = [
+    "lib/providers/adgem/wall.ts",
+    "app/api/providers/adgem/wall/route.ts",
+    "components/adgem-offer-wall.tsx",
+    "components/earn-provider-tabs.tsx",
+  ];
+  it("no secret names, hashes, or service-role references in wall code", () => {
+    for (const f of files) {
+      const code = codeWithoutComments(resolve(root, f));
+      expect(`${f}: ${code}`).not.toMatch(
+        /ADGEM_POSTBACK_KEY|CPX_APP_SECURE_HASH|CPX_POSTBACK_SECRET|SUPABASE_SERVICE_ROLE|service_role|createHmac|createHash|timingSafeEqual/i
+      );
+    }
+  });
+});

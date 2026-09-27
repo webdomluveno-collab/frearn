@@ -299,6 +299,19 @@ sign a JSON body with HMAC-SHA256 (hex) using the key, POST to
 `player_id` = a real user UUID, `conversion_type: "reward"`, `amount: 35` →
 `200` empty + one confirmed `offer_reward` (+35¢). Replay → `200`, still one row.
 
+### 10.8 AdGem Web Offerwall (Earn UI)
+
+`/dashboard/earn` shows provider tabs — **Surveys** (existing CPX wall,
+unchanged) and **Offers & Games** (AdGem) — with only the selected wall
+mounted. The AdGem URL is minted per request by `GET /api/providers/adgem/wall`
+(requires session; `playerid` comes from server auth only) as
+`https://adunits.adgem.com/wall?appid=<id>&playerid=<uuid>` via
+`lib/providers/adgem/wall.ts`. The App ID defaults to the documented `33683`
+and can be overridden with optional `ADGEM_APP_ID` (public, non-secret — no
+manual setup required). The iframe reuses the CPX sizing/loading/error UX with
+minimal sandbox permissions and no `allow` attribute. An empty third-party wall
+is rendered as-is, never faked and never treated as an app error.
+
 ## 11. Security considerations before production
 
 - [ ] Legal review of `/privacy` + `/terms` (placeholders marked TODO).
