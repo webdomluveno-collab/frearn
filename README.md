@@ -218,7 +218,73 @@ Operational gotchas learned the hard way (Sep 2026):
   Either create the zone first (Team → Domains → Add domain) or keep external
   DNS (`A @ → 75.2.60.5`, `CNAME www → <site>.netlify.app`).
 
-## 10. Security considerations before production
+## 10. AdGem Server Postback v3 receiver (no crediting yet)
+
+AdGem is being added as a second provider. Only the backend postback receiver
+is implemented — no iframe/offerwall, no rewards. CPX is untouched.
+
+### 10.1 What it does
+
+`POST /api/providers/adgem/postback` (JSON, `Signature` header):
+
+1. Rate limit → `ADGEM_POSTBACK_ENABLED=true` + `ADGEM_POSTBACK_KEY` set, else 503.
+2. Read the EXACT RAW body (`await req.text()`), HMAC-SHA256 hex over raw bytes,
+   timing-safe compare with `Signature` → 401 on mismatch (mirrors AdGem's own
+   reference code, which returns 200-empty on success, 401 on failure).
+3. Strict shape validation → 400. Unknown/unsupported `conversion_type` → 400.
+4. `player_id` must be an existing Supabase UUID (never created) → 422 if unknown.
+5. Verified events are stored ONCE in `provider_events` (`provider='adgem'`,
+   `external_event_id=request_id`, unique) → 200 empty. Retries → 200 duplicates.
+6. **No ledger row is ever written.** Verified `reward` events are stored with
+   `processing_status='held'`; `install` events as `'processed'` (non-monetary).
+   DB/internal failure → 500 (AdGem retries; nothing is falsely marked processed).
+
+### 10.2 Why no crediting (authoritative)
+
+Per AdGem's publisher docs (docs.adgem.com, "Server-to-Server Postbacks (v3)"):
+`data.amount` is "**the amount of virtual currency** to reward the user" while
+`data.payout` is "the decimal amount of revenue earned". Freearn's ledger is USD
+cents and there is no publisher-confirmed coin→cent rate, so crediting
+`amount` as cents would be wrong (in the documented example, `amount: 500`
+against `payout_cents: 150` proves the units differ). `payout_cents` is stored
+as `publisher_revenue_cents` (audit/margin only) and is NEVER used as the user
+reward. Enabling crediting requires a confirmed conversion rule + a new explicit
+task — do not invent one.
+
+### 10.3 Idempotency design
+
+- Transport: `UNIQUE(provider, external_event_id)` on `request_id` — exact
+  redelivery → `duplicate`, acknowledged 200.
+- Request-id reuse across different conversions/users → rejected + fraud flag.
+- Business: no ledger writes exist, so double-credit is structurally impossible.
+  When crediting is later enabled, ledger keys MUST be
+  `adgem:{conversion_id}:{goal_id}:reward` (never bare `offer_id`, never bare
+  `conversion_id` alone) so multi-goal offers are not collapsed — see code comments.
+- No migration was needed: all columns used are generic (`provider`,
+  `provider_transaction_id`, `metadata`, `publisher_revenue_cents`).
+
+### 10.4 Deliberately NOT implemented (needs AdGem-side confirmation)
+
+- Credit mapping (coin→cent rate) — needs publisher/AdGem confirmation.
+- Reversals/chargebacks — no reversal semantics found in the v3 docs; only
+  `reward` (monetary-track) and `install` (non-monetary) conversion types exist.
+- Timestamp replay window — docs specify none; relying on signature + idempotency.
+- IP whitelisting — docs recommend it; needs the static IP from AdGem support
+  (`support@adgem.com`) before an `ADGEM_WHITELIST_IP` check can be added.
+
+### 10.5 Test locally
+
+```bash
+npm test   # AdGem: signature / validation / process / route suites
+```
+
+End-to-end (needs Supabase keys + `ADGEM_POSTBACK_KEY` in `.env.local`):
+sign a JSON body with HMAC-SHA256 (hex) using the key, POST to
+`/api/providers/adgem/postback` with header `Signature: <hex>`,
+`player_id` = a real user UUID → `200` empty + one `provider_events` row
+(`processing_status='held'`, `user_reward_cents=0`). Replay → `200`, still one row.
+
+## 11. Security considerations before production
 
 - [ ] Legal review of `/privacy` + `/terms` (placeholders marked TODO).
 - [x] Real Supabase Auth wired (email verification via `/auth/callback`; enable it in Supabase Auth settings).
