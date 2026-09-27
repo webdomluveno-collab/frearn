@@ -38,3 +38,17 @@ describe("client reward creation is impossible (case 10)", () => {
     expect(shared).not.toMatch(/from ["']node:crypto["']/);
   });
 });
+
+describe("reversal unique index (Sep 2026 production incident)", () => {
+  it("migration 004 replaces the two-column index with a type-inclusive one", () => {
+    const sql = readFileSync(resolve(root, "database/migrations/004_fix_reversal_unique_index.sql"), "utf8");
+    expect(sql).toMatch(/drop index if exists ledger_transactions_provider_txn_uidx/i);
+    expect(sql).toMatch(/on ledger_transactions\s*\(\s*provider\s*,\s*provider_transaction_id\s*,\s*type\s*\)/i);
+    expect(sql).not.toMatch(/create policy|enable row level security|alter table/i);
+  });
+
+  it("schema.sql matches the fixed definition (reward + reversal may coexist)", () => {
+    const sql = readFileSync(resolve(root, "database/schema.sql"), "utf8");
+    expect(sql).toMatch(/on ledger_transactions\s*\(\s*provider\s*,\s*provider_transaction_id\s*,\s*type\s*\)/i);
+  });
+});

@@ -10,13 +10,17 @@ import { normalizePostback, validatePostbackShape, type CpxPostbackParams } from
 const USER = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee";
 const OTHER_USER = "ffffffff-1111-2222-3333-444444444444";
 
-/** In-memory store mirroring DB uniqueness: unique event key + unique idempotency key. */
+/** In-memory store mirroring DB uniqueness exactly (migration 004):
+ * unique event key + unique idempotency key + unique (provider, txn, type).
+ * The two-column variant (without type) is what silently blocked reversals
+ * in production — this double must stay as strict as the real schema. */
 class MemoryStore implements CpxStore {
   profiles = new Set<string>([USER]);
   events = new Map<string, CpxEventInsert & { processed: { status: string; error: string | null } | null }>();
   ledger: Array<CpxLedgerInsert & { id: string }> = [];
   fraudFlags: Array<{ userId: string; reason: string }> = [];
   private seq = 0;
+  private compositeKeys = new Set<string>();
 
   async findProfile(userId: string) {
     return this.profiles.has(userId) ? { id: userId } : null;
@@ -43,8 +47,13 @@ class MemoryStore implements CpxStore {
   }
   async insertLedger(row: CpxLedgerInsert) {
     if (this.ledger.some((l) => l.idempotencyKey === row.idempotencyKey)) return { id: "", inserted: false };
+    // Mirror of ledger_transactions_provider_txn_uidx (migration 004):
+    // (provider, provider_transaction_id, type) must be unique when txn id present.
+    const composite = row.providerTransactionId ? `${row.provider}|${row.providerTransactionId}|${row.type}` : null;
+    if (composite && this.compositeKeys.has(composite)) return { id: "", inserted: false };
     const id = `ledger-${++this.seq}`;
     this.ledger.push({ ...row, id });
+    if (composite) this.compositeKeys.add(composite);
     return { id, inserted: true };
   }
   async hasReversalForTransId(transId: string) {
@@ -189,5 +198,32 @@ describe("processCpxPostback", () => {
     const res = await processCpxPostback(store, normalizePostback(params({ extUserId: OTHER_USER })));
     expect(res).toEqual({ outcome: "rejected", error: "trans_id_user_mismatch" });
     expect(store.ledger.filter((l) => l.type === "survey_reward")).toHaveLength(1);
+  });
+
+  it("production reversal incident: status1 +70, status2 −70, duplicates inert, net zero", async () => {
+    // Mirrors trans_id 1001219086228: amount_local=0.7000 → 70¢, amount_usd=1.00 → 100¢.
+    const store = new MemoryStore();
+    const X = "1001219086228";
+    const base = { transId: X, amountLocal: "0.7000", amountUsd: "1.00", offerId: "1" };
+
+    const r1 = await processCpxPostback(store, normalizePostback(params({ ...base, status: "1" })));
+    expect(r1.outcome).toBe("rewarded");
+    expect(await store.getConfirmedSumCents(USER)).toBe(70);
+
+    const r2 = await processCpxPostback(store, normalizePostback(params({ ...base, status: "2" })));
+    expect(r2.outcome).toBe("reversed");
+    expect(await store.getConfirmedSumCents(USER)).toBe(0);
+
+    const d1 = await processCpxPostback(store, normalizePostback(params({ ...base, status: "1" })));
+    expect(d1.outcome).toBe("duplicate");
+    const d2 = await processCpxPostback(store, normalizePostback(params({ ...base, status: "2" })));
+    expect(d2.outcome).toBe("duplicate");
+
+    // Exactly two rows, net effect zero for X.
+    expect(store.ledger).toHaveLength(2);
+    expect(store.ledger[0]).toMatchObject({ type: "survey_reward", amountCents: 70, publisherRevenueCents: 100 });
+    expect(store.ledger[1]).toMatchObject({ type: "reversal", amountCents: -70 });
+    expect(store.ledger[1].metadata.reverses_ledger_id).toBe(store.ledger[0].id);
+    expect(await store.getConfirmedSumCents(USER)).toBe(0);
   });
 });

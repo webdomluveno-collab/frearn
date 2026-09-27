@@ -49,8 +49,11 @@ create table if not exists ledger_transactions (
 );
 
 -- DB-level idempotency for provider callbacks (concurrent duplicates safe).
+-- Composite includes `type` so exactly one reward + one reversal may coexist
+-- per provider transaction; same-type duplicates still conflict.
+-- (See migration 004: an earlier two-column variant silently blocked reversals.)
 create unique index if not exists ledger_transactions_provider_txn_uidx
-  on ledger_transactions (provider, provider_transaction_id)
+  on ledger_transactions (provider, provider_transaction_id, type)
   where provider_transaction_id is not null;
 
 create table if not exists withdrawal_requests (
