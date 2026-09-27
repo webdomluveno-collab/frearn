@@ -41,8 +41,17 @@ create table if not exists ledger_transactions (
   description text not null default '',
   idempotency_key text not null,
   created_at timestamptz not null default now(),
+  provider text,
+  provider_transaction_id text,
+  publisher_revenue_cents int not null default 0,
+  metadata jsonb not null default '{}'::jsonb,
   unique (idempotency_key)
 );
+
+-- DB-level idempotency for provider callbacks (concurrent duplicates safe).
+create unique index if not exists ledger_transactions_provider_txn_uidx
+  on ledger_transactions (provider, provider_transaction_id)
+  where provider_transaction_id is not null;
 
 create table if not exists withdrawal_requests (
   id uuid primary key default gen_random_uuid(),
@@ -68,6 +77,8 @@ create table if not exists provider_events (
   raw_payload jsonb,
   received_at timestamptz not null default now(),
   processed_at timestamptz,
+  processing_status text not null default 'received',
+  error text,
   unique (provider, external_event_id)
 );
 
@@ -89,3 +100,7 @@ create table if not exists waitlist (
   email text not null unique,
   created_at timestamptz not null default now()
 );
+
+-- Signup trigger + Row Level Security live in
+-- database/migrations/002_cpx_provider.sql — run that file right after this one
+-- (both for fresh installs and existing databases).

@@ -1,6 +1,6 @@
 import { bitlabsProvider } from "./bitlabs";
 import { mockProvider } from "./mock";
-import type { OpportunityProvider } from "./types";
+import type { OpportunityProvider, SurveyWallProvider } from "./types";
 
 /** Registry — add future providers here without touching UI code. */
 const providers: Record<string, OpportunityProvider> = {
@@ -10,6 +10,24 @@ const providers: Record<string, OpportunityProvider> = {
 
 export function getProvider(key: string): OpportunityProvider | undefined {
   return providers[key];
+}
+
+/** SurveyWall registry (CPX today; TheoremReach etc. later). UI never hardcodes providers. */
+const surveyWalls: Record<string, SurveyWallProvider> = {
+  // NOTE: reads server env directly instead of importing ./cpx/server so this
+  // module stays importable anywhere. In client bundles non-public env vars
+  // compile to undefined, so this safely reports false there. The secret itself
+  // is only ever touched inside ./cpx/server.ts (which has `import "server-only"`).
+  cpx: {
+    key: "cpx",
+    label: "Surveys",
+    isConfigured: () =>
+      Boolean(process.env.CPX_APP_SECURE_HASH) && process.env.CPX_POSTBACK_ENABLED === "true",
+  },
+};
+
+export function getSurveyWall(key: string): SurveyWallProvider | undefined {
+  return surveyWalls[key];
 }
 
 /** Default server-side opportunity source (mock in dev/pre-launch, empty in prod). */

@@ -32,4 +32,15 @@ export interface OpportunityProvider {
   normalizeCallback(payload: unknown): NormalizedCallback | null;
 }
 
+/**
+ * SurveyWall provider (e.g. CPX): users complete surveys inside a
+ * server-generated, per-user wall URL rather than picking listed offers.
+ * Kept separate so listing-based providers stay decoupled.
+ */
+export interface SurveyWallProvider {
+  readonly key: string;
+  readonly label: string;
+  isConfigured(): boolean;
+}
+
 export type { LedgerTransaction, WithdrawalRequest };

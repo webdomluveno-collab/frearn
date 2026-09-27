@@ -48,11 +48,18 @@ export interface LedgerTransaction {
   userId: string;
   type: LedgerType;
   status: LedgerStatus;
-  /** Integer cents. Negative for withdrawals. */
+  /** Integer cents. Negative for withdrawals and reversals. */
   amountCents: number;
   description: string;
   idempotencyKey: string;
   createdAt: string;
+  /** Generic provider key (e.g. "cpx"). Absent on legacy/demo rows. */
+  provider?: string | null;
+  /** Provider-side transaction id for traceability + idempotency. */
+  providerTransactionId?: string | null;
+  /** Integer cents the publisher earned on this transaction (margin accounting). */
+  publisherRevenueCents?: number;
+  metadata?: Record<string, unknown>;
 }
 
 export type WithdrawalStatus =

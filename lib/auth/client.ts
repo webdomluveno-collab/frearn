@@ -1,25 +1,28 @@
-import { createClient as createSupabaseClient } from "@supabase/supabase-js";
+import { createBrowserClient } from "@supabase/ssr";
 
 /**
- * Supabase-ready auth architecture.
- * The app runs without credentials (demo/pre-launch mode).
- * When env vars are set, callers can use getSupabase() for auth/db.
+ * Browser Supabase client (singleton). Uses only the public anon key.
+ * Never put secrets here.
  */
+let browserClient: ReturnType<typeof createBrowserClient> | null = null;
+
+export function getSupabaseBrowser() {
+  if (browserClient) return browserClient;
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const anon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  if (!url || !anon) {
+    throw new Error("Supabase is not configured. Set NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY.");
+  }
+  browserClient = createBrowserClient(url, anon);
+  return browserClient;
+}
+
 export function isSupabaseConfigured(): boolean {
-  return Boolean(
-    process.env.NEXT_PUBLIC_SUPABASE_URL &&
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-  );
+  return Boolean(process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY);
 }
 
-export function getSupabase() {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-  const anon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
-  return createSupabaseClient(url, anon);
-}
-
-/** Placeholder session — replace with real Supabase Auth session. */
+/** @deprecated Use lib/auth/server getSessionUser in server code. Kept for compatibility. */
 export async function getSessionUser() {
-  // TODO(auth): wire Supabase Auth (email verification, Google login later).
+  // Client components should read the session from getSupabaseBrowser().auth.getUser().
   return null;
 }

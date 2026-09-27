@@ -43,8 +43,9 @@ npm run build
 ## 5. Database setup
 
 1. Create a Supabase project (Postgres).
-2. Run `database/schema.sql` in the SQL editor.
-3. Set Supabase env vars, enable RLS policies per your review.
+2. Run `database/schema.sql` in the SQL editor, then `database/migrations/002_cpx_provider.sql`
+   (ledger provider columns, provider-event status, signup trigger, Row Level Security).
+3. Set Supabase env vars (URL, anon key, service-role key).
 4. Balances are **derived** from `ledger_transactions` (see `lib/wallet/ledger.ts`). Money is integer cents in TS, `NUMERIC`/cents in Postgres — never floats.
 
 ## 6. How the mock provider works
@@ -89,13 +90,127 @@ Notes for the static version:
 - Login/register/dashboard are interactive UI demos; real auth needs the Node version + Supabase.
 - `/admin/` is a zero-data placeholder structure.
 
-## 9. Security considerations before production
+## 9. CPX Research integration (live provider)
+
+Frearn's first real survey provider is **CPX Research** (App ID `36592`, site `https://freearn.online`).
+CPX shows users surveys inside an embedded SurveyWall; completions arrive as
+server-to-server postbacks that credit the immutable ledger exactly once.
+
+### 9.1 What it does
+
+- Authenticated user opens **Earn → Surveys** → personal SurveyWall URL is minted
+  **server-side** for that user's stable auth UUID (`ext_user_id`).
+- CPX calls `GET /api/providers/cpx/postback` on completion.
+- The endpoint validates shape + signature, stores a `provider_events` row,
+  inserts one `survey_reward` ledger row (integer cents), and the user's
+  available balance updates (derived, never a mutable float).
+- A later `status=2` postback creates an immutable `reversal` row linked to the
+  original — the original is never edited or deleted.
+
+### 9.2 Environment variables (server-only — never `NEXT_PUBLIC_*`)
+
+| Var | Value / source |
+|---|---|
+| `CPX_APP_ID` | `36592` (public; code defaults to it when unset) |
+| `CPX_APP_SECURE_HASH` | From CPX dashboard: app/panel → secure hash. **Secret.** |
+| `CPX_POSTBACK_SECRET` | Optional; when empty, `CPX_APP_SECURE_HASH` is used (CPX uses one secret for both purposes). |
+| `CPX_POSTBACK_ENABLED` | Must be exactly `true`, otherwise postbacks are rejected (fail closed). |
+| `NEXT_PUBLIC_SUPABASE_URL` / `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Required for auth + DB. |
+| `SUPABASE_SERVICE_ROLE_KEY` | Required by the postback endpoint (server-only). |
+| `ADMIN_EMAILS` | Comma-separated admin login emails (admin dashboard + `/admin` gate). |
+
+The CPX secure hash lives in the CPX publisher panel for App 36592 (usually
+labeled "Secure hash" / "App secure hash" in the app or postback settings).
+It is only ever read in `lib/providers/cpx/server.ts` (guarded by
+`import "server-only"`) and never leaves the server.
+
+### 9.3 SurveyWall URL generation
+
+`lib/providers/cpx/server.ts#buildSurveyWallUrl` builds, per authenticated user:
+
+`https://offers.cpx-research.com/index.php?app_id=36592&ext_user_id={uuid}&secure_hash={md5(uuid-secret)}&email={email}&subid_1=&subid_2=`
+
+- `ext_user_id` = Supabase `auth.users.id` from the trusted server session.
+- `secure_hash` = `MD5("{ext_user_id}-{CPX_APP_SECURE_HASH}")` via `node:crypto`.
+- All params URL-encoded (`URLSearchParams`). Email is included; no other PII.
+- The browser receives only the finished URL (hash included, as CPX requires) —
+  never the secret.
+
+### 9.4 Callback endpoint + exact Main Postback URL
+
+`GET /api/providers/cpx/postback` accepts: `status, trans_id, user_id,
+amount_local, amount_usd, offer_id, hash` (+ optional `sub_id, sub_id_2, ip_click`).
+
+**Paste this exact URL into the CPX dashboard (Main Postback URL):**
+
+```text
+https://freearn.online/api/providers/cpx/postback?status={status}&trans_id={trans_id}&user_id={user_id}&sub_id={subid}&sub_id_2={subid_2}&amount_local={amount_local}&amount_usd={amount_usd}&offer_id={offer_ID}&hash={secure_hash}&ip_click={ip_click}
+```
+
+Expert postbacks intentionally **not** configured yet: Screen Out, Bonus/Rating,
+Event Canceled.
+
+Success responses return plain-text `1` (HTTP 200); rejections return `0` with
+4xx/5xx. Signature = `MD5("{trans_id}{postback_secret}")`, compared
+timing-safe. Rewards use `amount_local` (CPX already applies the 0.70 currency
+factor); `amount_usd` is stored as publisher revenue for margin accounting.
+
+### 9.5 Reward assumptions (CPX panel: factor 0.70 / bonus 1.00)
+
+- `amount_local` is treated as the **authoritative per-user reward** — Frearn
+  does NOT re-apply the 70% factor (that would double-discount).
+- `amount_usd` is treated as the **publisher payout**; margin = revenue − reward.
+- Both are parsed as exact decimal strings into integer cents (no floats).
+
+### 9.6 Idempotency
+
+- `provider_events` has `UNIQUE(provider, external_event_id)`.
+- `ledger_transactions` has partial `UNIQUE(provider, provider_transaction_id)`
+  plus per-row `idempotency_key` (`cpx:{trans_id}:reward`, `cpx:{trans_id}:reversal`).
+- Concurrent duplicate callbacks race on the constraints; losers are acknowledged
+  as duplicates without new ledger rows.
+
+### 9.7 Reversals (`status=2`, possibly 15–60 days later)
+
+1. Find the original `survey_reward` by `(cpx, trans_id)`.
+2. Re-verify the callback signature.
+3. Skip if a reversal already exists (idempotent).
+4. Insert `reversal` row for `−original` cents with `metadata.reverses_ledger_id`.
+5. If the confirmed sum goes negative (user already withdrew), keep the owed
+   state and insert a `fraud_flags` row for review. No external charging, ever.
+
+### 9.8 Local testing
+
+```bash
+npm test            # 20 tests: hashes, money parsing, reward/duplicate/reversal, guards
+```
+
+End-to-end (needs Supabase keys + `CPX_APP_SECURE_HASH` in `.env.local`):
+1. `database/schema.sql`, then `database/migrations/002_cpx_provider.sql` in Supabase SQL editor.
+2. Register at `/register`, confirm email, sign in.
+3. Open `/dashboard/earn` — the Surveys iframe loads your personal wall URL
+   (check `/api/providers/cpx/wall` returns a URL with your user id).
+4. Simulate CPX with `curl` (compute the test hash first):
+   `GET /api/providers/cpx/postback?status=1&trans_id=...&user_id=...&amount_local=1.40&amount_usd=2.00&offer_id=...&hash=...`
+   → `1`; repeat → `1` with no second row; wrong hash → `0` (403).
+5. `status=2` with the same `trans_id` → reversal row appears in Transactions.
+
+### 9.9 Deploy (Netlify, server runtime REQUIRED)
+
+The postback endpoint needs a Node server — do NOT deploy the static export
+(`npm run export:static` drops `/api/*`). `netlify.toml` pins
+`npm run build` with publish `.next` (Next.js Runtime). Required dashboard env:
+`CPX_APP_SECURE_HASH`, `CPX_POSTBACK_ENABLED=true`, Supabase keys,
+`ADMIN_EMAILS`, `MOCK_PROVIDER_ENABLED=false`.
+
+## 10. Security considerations before production
 
 - [ ] Legal review of `/privacy` + `/terms` (placeholders marked TODO).
-- [ ] Real Supabase Auth (email verification, session, RLS).
-- [ ] Admin auth via `ADMIN_EMAILS` + middleware session check (currently deny-by-default).
+- [x] Real Supabase Auth wired (email verification via `/auth/callback`; enable it in Supabase Auth settings).
+- [x] Admin auth via `ADMIN_EMAILS` + middleware session check (deny-by-default 404 kept).
+- [x] RLS migration written (`database/migrations/002_cpx_provider.sql`) — **you must apply it**; verify policies in Supabase (see §5).
 - [ ] Persistent rate limiting (current `lib/rate-limit.ts` is in-memory placeholder).
-- [ ] Callback HMAC verification + idempotency tests; never trust client reward amounts.
+- [x] CPX signature verification + idempotency tests implemented — **you must confirm hash formulas/response with CPX docs** (see §9.4 and final checklist below).
 - [ ] Raw provider payloads never exposed to users; admin-only.
 - [ ] Support email / domain set (`support@freearn.online` — configured).
 - [ ] No secrets with `NEXT_PUBLIC_` prefix except anon key + URL.

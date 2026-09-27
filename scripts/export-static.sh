@@ -11,6 +11,7 @@ cd "$(dirname "$0")/.."
 
 restore() {
   [ -d ".export-bak/api" ] && rm -rf app/api && mv .export-bak/api app/api
+  [ -d ".export-bak/auth" ] && rm -rf app/auth && mv .export-bak/auth app/auth
   [ -f ".export-bak/middleware.ts" ] && mv .export-bak/middleware.ts middleware.ts
   rmdir .export-bak 2>/dev/null || true
 }
@@ -18,6 +19,7 @@ trap restore EXIT
 
 mkdir -p .export-bak
 [ -d "app/api" ] && mv app/api .export-bak/api
+[ -d "app/auth" ] && mv app/auth .export-bak/auth
 [ -f "middleware.ts" ] && mv middleware.ts .export-bak/middleware.ts
 
 STATIC_EXPORT=true NEXT_PUBLIC_STATIC_EXPORT=true npm run build
