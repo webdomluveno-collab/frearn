@@ -1,9 +1,7 @@
 import Link from "next/link";
-import { Brand } from "@/components/fx/brand";
 import { Icon, Spark } from "@/components/fx/icon";
 import { ButtonLink } from "@/components/fx/primitives";
 import { OpportunityArt, type FxArt } from "@/components/fx/opportunity-art";
-import { siteConfig } from "@/config/site";
 
 const categories: Array<{ art: FxArt; name: string; tagline: string }> = [
   {
@@ -29,26 +27,11 @@ const categories: Array<{ art: FxArt; name: string; tagline: string }> = [
 ];
 
 export default function HomePage() {
-  const year = new Date().getFullYear();
   return (
     <div className="landing">
       <a className="skip-link" href="#home-main">
         Skip to content
       </a>
-      <header className="public-header">
-        <Brand />
-        <nav aria-label="Public navigation">
-          <Link href="#how-it-works">How it works</Link>
-          <Link href="/dashboard/earn">Explore opportunities</Link>
-          <Link href="/contact">Need a hand?</Link>
-        </nav>
-        <div>
-          <Link href="/login" className="login-link">
-            Log in
-          </Link>
-          <ButtonLink href="/register">Sign up</ButtonLink>
-        </div>
-      </header>
       <main id="home-main">
         <section className="landing-hero">
           <div className="landing-hero-copy">
@@ -176,19 +159,6 @@ export default function HomePage() {
           </ButtonLink>
         </section>
       </main>
-      <footer className="public-footer">
-        <Brand />
-        <span>
-          © {year} {siteConfig.name} · {siteConfig.tagline}
-        </span>
-        <div>
-          <Link href="/login">Log in</Link>
-          <Link href="/faq">FAQ</Link>
-          <Link href="/contact">Contact</Link>
-          <Link href="/privacy">Privacy</Link>
-          <Link href="/terms">Terms</Link>
-        </div>
-      </footer>
     </div>
   );
 }
