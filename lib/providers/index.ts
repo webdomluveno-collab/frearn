@@ -1,5 +1,6 @@
 import { bitlabsProvider } from "./bitlabs";
 import { mockProvider } from "./mock";
+import { isTimewallWallAvailable } from "./timewall/wall";
 import type { OpportunityProvider, SurveyWallProvider } from "./types";
 
 /** Registry — add future providers here without touching UI code. */
@@ -30,6 +31,14 @@ const surveyWalls: Record<string, SurveyWallProvider> = {
     key: "adgem",
     label: "Offers & Games",
     isConfigured: () => true,
+  },
+  // TimeWall wall URL is server-side configuration without secrets (see
+  // ./timewall/wall.ts). Reports false until the official Placement URL is
+  // configured after approval — callers must hide the tab while unavailable.
+  timewall: {
+    key: "timewall",
+    label: "TimeWall",
+    isConfigured: () => isTimewallWallAvailable(),
   },
 };
 

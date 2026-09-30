@@ -30,6 +30,9 @@ npm run dev      # http://localhost:3000
 | `BITLABS_CALLBACK_ENABLED` | Keep `false` until approved + spec implemented |
 | `ADMIN_EMAILS` | Comma-separated admin allowlist |
 | `NEXT_PUBLIC_SUPPORT_EMAIL` | Defaults to `support@freearn.online` |
+| `TIMEWALL_POSTBACK_SECRET` | From TimeWall publisher dashboard. **Secret, server-only.** |
+| `TIMEWALL_POSTBACK_ENABLED` | Must be exactly `true`, otherwise TimeWall postbacks are rejected. |
+| `TIMEWALL_WALL_URL` | Official TimeWall Placement URL (public). Empty until placement approved. |
 
 ## 4. Local development
 
@@ -312,7 +315,106 @@ manual setup required). The iframe reuses the CPX sizing/loading/error UX with
 minimal sandbox permissions and no `allow` attribute. An empty third-party wall
 is rendered as-is, never faked and never treated as an app error.
 
-## 11. Security considerations before production
+## 11. TimeWall integration (postback ingesting, crediting HELD, wall pending approval)
+
+Placement: **Freearn** · ID `6154a2b1f8661a69` · Offerwall (iFrame) · **PENDING APPROVAL**.
+The Placement URL is not available yet — nothing is guessed or constructed.
+`TIMEWALL_WALL_URL` stays empty, `isTimewallWallAvailable()` is false, and the
+Earn UI renders no TimeWall tab.
+
+### 11.1 What it does
+
+`GET /api/providers/timewall/postback` (server-only):
+
+1. Rate limit → `TIMEWALL_POSTBACK_ENABLED=true` + `TIMEWALL_POSTBACK_SECRET` set, else 503.
+2. Extract raw query strings → charset validation (guarantees raw == decoded
+   for hashing) → SHA256(`userid` + `revenue_raw` + secret) hex, timing-safe
+   compare with `hash` → 403 on mismatch.
+3. Strict shape validation → 400 (`userid` UUID, `txid`, decimal `revenue`,
+   integer `currency`, 64-hex `hash`, non-empty `type`).
+4. `userid` must resolve to an existing profile (never created) → 422 if unknown.
+5. Verified events are stored ONCE in `provider_events` (`provider='timewall'`,
+   `external_event_id=txid`, unique) → 200 `"1"`. Retries → 200 duplicates.
+6. **No ledger row is written for any event yet** (see §11.3): verified events
+   are stored with `processing_status='held_awaiting_type_confirmation'`.
+   DB/internal failure → 500 (provider retries; nothing falsely marked processed).
+
+### 11.2 Confirmed money mapping (publisher placement config)
+
+Placement: Currency=cents, Decimals=No, conversion rate 70; dashboard
+demonstrates $1.00 revenue → 70 cents to user. Therefore `currency` arrives as
+whole USD cents of the user's reward: `currency=70` → **+70¢** (never 49¢ —
+no second multiplier is applied anywhere, locked by unit + source-guard tests).
+`revenue` is publisher revenue in decimal dollars (`revenue=1.00` → 100¢),
+parsed with exact decimal math (`0.5` stays `"0.5"` for hashing; sub-cent
+`0.002` rounds to 0¢ exactly). Revenue is stored in `publisher_revenue_cents`
+(audit/margin only) and NEVER determines the balance.
+
+### 11.3 Why crediting is HELD (unproven `type` semantics)
+
+No public TimeWall postback documentation is reachable (site Cloudflare-blocked)
+and `type`/`withdrawid`/`reason` meanings cannot be proven. Monetary crediting
+is therefore gated on `TIMEWALL_CREDITABLE_TYPES`, which ships EMPTY: every
+verified event is stored durably as held, none credits. The credit code path
+(type `offer_reward`, verbatim `currency` cents, deterministic
+`timewall:{txid}:reward` key, ledger-anchored idempotency) is fully implemented
+and tested via injected allowlist — enabling it later is a one-line change once
+TimeWall confirms the earn `type` value. Unknown types are NEVER mapped to
+positive balance, and no reversal behavior is implemented (no chargeback
+semantics found — see §11.5).
+
+### 11.4 Idempotency + crash/race safety (ledger-anchored)
+
+- Event key: `UNIQUE(provider, external_event_id)` on `txid` — exact redelivery
+  → `duplicate`, acknowledged 200.
+- Reward identity: `provider_transaction_id = txid` + deterministic
+  `timewall:{txid}:reward` key + composite unique `(provider, txn, type)`.
+- Money verdicts consult the LEDGER first: a crash between event insert and
+  ledger insert resolves to a credit on retry, never a silent loss; concurrent
+  duplicates collapse on constraints, losers re-read and acknowledge.
+- Same txid + different user → rejected + fraud flag, no second ledger.
+- No migration was needed: existing generic columns + constraints suffice.
+
+### 11.5 Reversals / chargebacks — NOT implemented (unproven)
+
+`type`, `withdrawid`, and `reason` are stored as audit metadata only. No
+reversal/chargeback semantics could be proven from reachable documentation, so
+no monetary reversal path exists. Do not infer `type` values.
+
+### 11.6 IP allowlist — deliberately NOT enforced
+
+TimeWall documents three sending IPs (`18.156.132.55`, `51.81.120.73`,
+`142.111.248.18`, latter two being retired), but the app runs behind Netlify's
+proxy and there is no verified, spoof-proof mechanism to recover the true
+client IP here (a client-supplied `X-Forwarded-For` prefix cannot be trusted,
+so enforcing an allowlist on it would be theater that could also lock out
+legitimate callbacks). Authentication rests SOLELY on the cryptographic hash
+until Netlify's official client-IP mechanism is verified. Rate limiting still
+applies per observed IP on a best-effort basis.
+
+### 11.7 Test locally
+
+```bash
+npm test   # TimeWall: hash / money / process / route / wall / guards suites
+```
+
+End-to-end (needs Supabase keys + `TIMEWALL_POSTBACK_SECRET` in `.env.local`):
+`GET /api/providers/timewall/postback?userid=<real UUID>&txid=<id>&revenue=1.00&currency=70&type=<any>&hash=<sha256 hex of userid+revenue+secret>`
+→ `200 "1"` + one `provider_events` row (`held_awaiting_type_confirmation`,
+`user_reward_cents=0`). Replay → `200`, still one row. Wrong hash → `403`.
+
+### 11.8 Steps needed after TimeWall approval
+
+1. Paste the official Placement URL into `TIMEWALL_WALL_URL` (Netlify env) —
+   the Earn tab appears automatically, no code change (confirm the `userid`
+   parameter name against the issued URL; adjust only `buildTimewallWallUrl`).
+2. Confirm the earn `type` value (dashboard/docs/test postback) and add it to
+   `TIMEWALL_CREDITABLE_TYPES` in `lib/providers/timewall/process.ts` + tests.
+3. Confirm the acknowledgement format (`200 "1"` assumed from CPX convention).
+4. Replay any `held_awaiting_type_confirmation` events if crediting is desired
+   (no automatic backfill exists by design).
+
+## 12. Security considerations before production
 
 - [ ] Legal review of `/privacy` + `/terms` (placeholders marked TODO).
 - [x] Real Supabase Auth wired (email verification via `/auth/callback`; enable it in Supabase Auth settings).
