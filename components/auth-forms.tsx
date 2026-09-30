@@ -3,32 +3,132 @@
 import { useState, type FormEvent, type ReactNode } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input, Label } from "@/components/ui/input";
+import { Button } from "@/components/fx/primitives";
+import { Brand } from "@/components/fx/brand";
+import { Icon, Spark } from "@/components/fx/icon";
 import { getSupabaseBrowser, isSupabaseConfigured } from "@/lib/auth/client";
 import { siteConfig } from "@/config/site";
 import { COUNTRIES, isValidCountryCode, normalizeCountryCode } from "@/lib/countries";
 
 function AuthShell({ title, sub, children }: { title: string; sub: string; children: ReactNode }) {
   return (
-    <div className="container flex max-w-md flex-col py-14">
-      <Card><CardHeader><CardTitle>{title}</CardTitle><CardDescription>{sub}</CardDescription></CardHeader>
-      <CardContent>{children}</CardContent></Card>
+    <div className="auth-page">
+      <a className="skip-link" href="#auth-main">
+        Skip to form
+      </a>
+      <aside className="auth-brand-panel">
+        <Brand light />
+        <div className="auth-brand-story">
+          <span className="eyebrow">YOUR EVERYDAY, REWARDED</span>
+          <h2>
+            Little wins.
+            <br />
+            Bigger possibilities<span>.</span>
+          </h2>
+          <p>
+            A survey over coffee.
+            <br />A new game on your commute.
+            <br />A little more for the things you love.
+          </p>
+          <div className="auth-art" aria-hidden="true">
+            <div />
+            <Spark size={220} />
+            <span>
+              MAKE A LITTLE
+              <br />
+              MORE OF YOUR DAY.
+            </span>
+          </div>
+        </div>
+        <span className="auth-brand-footer">At your pace. On your terms.</span>
+      </aside>
+      <main id="auth-main" className="auth-form-panel">
+        <header className="auth-topbar">
+          <div className="auth-mobile-brand">
+            <Brand />
+          </div>
+          <Link href="/" className="text-link">
+            Back to Freearn
+          </Link>
+        </header>
+        <div className="auth-form-container">
+          <h1>{title}</h1>
+          <p className="auth-description">{sub}</p>
+          {children}
+        </div>
+        <footer className="auth-footer">
+          <span>© {new Date().getFullYear()} {siteConfig.name}</span>
+          <Link href="/contact">Need a hand?</Link>
+        </footer>
+      </main>
     </div>
   );
 }
 
 function FormError({ message }: { message: string | null }) {
   if (!message) return null;
-  return <p role="alert" className="rounded-xl bg-red-500/10 p-3 text-sm text-red-700 dark:text-red-300">{message}</p>;
+  return (
+    <p id="auth-error" role="alert" className="form-error">
+      {message}
+    </p>
+  );
 }
 
 function NotConfigured() {
   return (
-    <p role="alert" className="rounded-xl bg-amber-500/10 p-3 text-sm text-amber-800 dark:text-amber-200">
+    <div className="notice notice-warning" role="alert">
       Sign-in is unavailable: authentication is not configured yet. Please try again later.
-    </p>
+    </div>
+  );
+}
+
+function PasswordField({
+  id,
+  label,
+  value,
+  onChange,
+  autoComplete,
+  minLength,
+  forgotLink,
+  describedBy = "auth-error",
+}: {
+  id: string;
+  label: ReactNode;
+  value: string;
+  onChange: (v: string) => void;
+  autoComplete: string;
+  minLength?: number;
+  forgotLink?: boolean;
+  describedBy?: string;
+}) {
+  const [visible, setVisible] = useState(false);
+  return (
+    <div className="field">
+      <div className="auth-password-label">
+        <label htmlFor={id}>{label}</label>
+        {forgotLink && <Link href="/forgot-password">Forgot password?</Link>}
+      </div>
+      <div className="password-input">
+        <input
+          id={id}
+          type={visible ? "text" : "password"}
+          autoComplete={autoComplete}
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          maxLength={128}
+          minLength={minLength}
+          required
+          aria-describedby={describedBy}
+        />
+        <button
+          type="button"
+          onClick={() => setVisible(!visible)}
+          aria-label={visible ? "Hide password" : "Show password"}
+        >
+          <Icon name={visible ? "eye-off" : "eye"} size={18} />
+        </button>
+      </div>
+    </div>
   );
 }
 
@@ -62,15 +162,39 @@ export function LoginForm() {
   }
 
   return (
-    <AuthShell title="Welcome back" sub="Sign in to your account.">
+    <AuthShell title="A little more starts here." sub="Good to see you again. Pick up where you left off.">
       {!configured && <NotConfigured />}
-      <form className="space-y-4" onSubmit={submit}>
+      <form className="form-stack" onSubmit={submit} noValidate>
+        <div className="field">
+          <label htmlFor="email">Email address</label>
+          <input
+            id="email"
+            type="email"
+            autoComplete="email"
+            placeholder="you@example.com"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            maxLength={254}
+            required
+            aria-describedby="auth-error"
+          />
+        </div>
+        <PasswordField
+          id="password"
+          label="Password"
+          value={password}
+          onChange={setPassword}
+          autoComplete="current-password"
+          forgotLink
+        />
         <FormError message={error} />
-        <div><Label htmlFor="email">Email</Label><Input id="email" type="email" autoComplete="email" required value={email} onChange={(e) => setEmail(e.target.value)} /></div>
-        <div><Label htmlFor="password">Password</Label><Input id="password" type="password" autoComplete="current-password" required value={password} onChange={(e) => setPassword(e.target.value)} /></div>
-        <Button className="w-full" type="submit" disabled={loading || !configured}>{loading ? "Signing in…" : "Sign in"}</Button>
-        <p className="text-sm text-muted-foreground"><Link className="underline" href="/forgot-password">Forgot password?</Link>{" · "}<Link className="underline" href="/register">Create account</Link></p>
+        <Button type="submit" className="full-width" disabled={loading || !configured} aria-busy={loading}>
+          {loading ? "Signing in…" : "Log in"}
+        </Button>
       </form>
+      <p className="auth-switch">
+        New around here? <Link href="/register">Create an account</Link>
+      </p>
     </AuthShell>
   );
 }
@@ -127,42 +251,80 @@ export function RegisterForm() {
   if (checkEmail) {
     return (
       <AuthShell title="Check your email" sub="We sent you a confirmation link.">
-        <p className="text-sm text-muted-foreground">
-          Click the link in the email to verify your account, then sign in. The link brings you straight to your dashboard.
-        </p>
-        <p className="mt-4 text-sm text-muted-foreground"><Link className="underline" href="/login">Back to sign in</Link></p>
+        <div className="auth-success">
+          <span className="success-symbol">
+            <Icon name="check" size={28} />
+          </span>
+          <p>
+            Click the link in the email to verify your account, then sign in. The link brings
+            you straight to your dashboard.
+          </p>
+          <p className="auth-switch">
+            <Link href="/login">Back to log in</Link>
+          </p>
+        </div>
       </AuthShell>
     );
   }
 
   return (
-    <AuthShell title="Create your account" sub="One account per person. Live earning is rolling out gradually.">
+    <AuthShell title="Your first little win awaits." sub="Make a little more of the time you already have.">
       {!configured && <NotConfigured />}
-      <form className="space-y-4" onSubmit={submit}>
-        <FormError message={error} />
-        <div><Label htmlFor="r-email">Email</Label><Input id="r-email" type="email" autoComplete="email" required value={email} onChange={(e) => setEmail(e.target.value)} /></div>
-        <div><Label htmlFor="r-pass">Password</Label><Input id="r-pass" type="password" autoComplete="new-password" required minLength={8} value={password} onChange={(e) => setPassword(e.target.value)} /></div>
-        <div>
-          <Label htmlFor="r-country">Country</Label>
+      <form className="form-stack" onSubmit={submit} noValidate>
+        <div className="field">
+          <label htmlFor="r-email">Email address</label>
+          <input
+            id="r-email"
+            type="email"
+            autoComplete="email"
+            placeholder="you@example.com"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            maxLength={254}
+            required
+            aria-describedby="auth-error"
+          />
+        </div>
+        <PasswordField
+          id="r-pass"
+          label="Password"
+          value={password}
+          onChange={setPassword}
+          autoComplete="new-password"
+          minLength={8}
+        />
+        <p className="small muted">At least 8 characters.</p>
+        <div className="field">
+          <label htmlFor="r-country">Country</label>
           <select
             id="r-country"
             required
             value={country}
             onChange={(e) => setCountry(e.target.value)}
-            className="flex h-10 w-full rounded-xl border border-border bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 disabled:opacity-50"
+            aria-describedby="auth-error"
           >
-            <option value="" disabled>Select your country</option>
+            <option value="" disabled>
+              Select your country
+            </option>
             {COUNTRIES.map((c) => (
-              <option key={c.code} value={c.code}>{c.name}</option>
+              <option key={c.code} value={c.code}>
+                {c.name}
+              </option>
             ))}
           </select>
         </div>
-        <label className="flex items-start gap-2 text-sm text-muted-foreground">
-          <input type="checkbox" required className="mt-1" /> I accept the <Link className="underline" href="/terms">Terms</Link> and <Link className="underline" href="/privacy">Privacy Policy</Link>.
+        <label className="terms-row">
+          <input type="checkbox" required /> I accept the <Link href="/terms">Terms</Link> and{" "}
+          <Link href="/privacy">Privacy Policy</Link>.
         </label>
-        <Button className="w-full" type="submit" disabled={loading || !configured}>{loading ? "Creating…" : "Create account"}</Button>
-        <p className="text-sm text-muted-foreground">Already have an account? <Link className="underline" href="/login">Sign in</Link></p>
+        <FormError message={error} />
+        <Button type="submit" className="full-width" disabled={loading || !configured} aria-busy={loading}>
+          {loading ? "Creating…" : "Create account"}
+        </Button>
       </form>
+      <p className="auth-switch">
+        Already have an account? <Link href="/login">Log in</Link>
+      </p>
     </AuthShell>
   );
 }
@@ -197,17 +359,44 @@ export function ForgotForm() {
   }
 
   return (
-    <AuthShell title="Reset password" sub="We'll email you a reset link if the address exists.">
+    <AuthShell title="Let’s get you back in." sub="Enter your email and we’ll send a reset link.">
       {!configured && <NotConfigured />}
       {done ? (
-        <p role="status" className="text-sm text-muted-foreground">If an account exists for that email, a reset link is on its way.</p>
+        <div className="auth-success">
+          <span className="success-symbol">
+            <Icon name="check" size={28} />
+          </span>
+          <h2>Your next step is clear.</h2>
+          <p>If an account exists for that email, a reset link is on its way.</p>
+          <p className="auth-switch">
+            <Link href="/login">Back to log in</Link>
+          </p>
+        </div>
       ) : (
-        <form className="space-y-4" onSubmit={submit}>
+        <form className="form-stack" onSubmit={submit} noValidate>
+          <div className="field">
+            <label htmlFor="f-email">Email address</label>
+            <input
+              id="f-email"
+              type="email"
+              autoComplete="email"
+              placeholder="you@example.com"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              maxLength={254}
+              required
+              aria-describedby="auth-error"
+            />
+          </div>
           <FormError message={error} />
-          <div><Label htmlFor="f-email">Email</Label><Input id="f-email" type="email" required value={email} onChange={(e) => setEmail(e.target.value)} /></div>
-          <Button className="w-full" type="submit" disabled={loading || !configured}>{loading ? "Sending…" : "Send reset link"}</Button>
+          <Button type="submit" className="full-width" disabled={loading || !configured} aria-busy={loading}>
+            {loading ? "Sending…" : "Send reset link"}
+          </Button>
         </form>
       )}
+      <p className="auth-switch">
+        <Link href="/login">Back to log in</Link>
+      </p>
     </AuthShell>
   );
 }
@@ -216,12 +405,17 @@ export function ResetPasswordForm() {
   const router = useRouter();
   const configured = isSupabaseConfigured();
   const [password, setPassword] = useState("");
+  const [confirm, setConfirm] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
   async function submit(e: FormEvent) {
     e.preventDefault();
     if (!configured) return;
+    if (password !== confirm) {
+      setError("The passwords do not match.");
+      return;
+    }
     setError(null);
     setLoading(true);
     try {
@@ -241,12 +435,34 @@ export function ResetPasswordForm() {
   }
 
   return (
-    <AuthShell title="Choose a new password" sub="Enter your new password below.">
+    <AuthShell title="A fresh start for your account." sub="Choose a new password below.">
       {!configured && <NotConfigured />}
-      <form className="space-y-4" onSubmit={submit}>
+      <form className="form-stack" onSubmit={submit} noValidate>
+        <PasswordField
+          id="n-pass"
+          label="New password"
+          value={password}
+          onChange={setPassword}
+          autoComplete="new-password"
+          minLength={8}
+        />
+        <div className="field">
+          <label htmlFor="confirm-password">Confirm new password</label>
+          <input
+            id="confirm-password"
+            type="password"
+            autoComplete="new-password"
+            value={confirm}
+            onChange={(e) => setConfirm(e.target.value)}
+            maxLength={128}
+            required
+            placeholder="The same new password"
+          />
+        </div>
         <FormError message={error} />
-        <div><Label htmlFor="n-pass">New password</Label><Input id="n-pass" type="password" autoComplete="new-password" required minLength={8} value={password} onChange={(e) => setPassword(e.target.value)} /></div>
-        <Button className="w-full" type="submit" disabled={loading || !configured}>{loading ? "Saving…" : "Save new password"}</Button>
+        <Button type="submit" className="full-width" disabled={loading || !configured} aria-busy={loading}>
+          {loading ? "Saving…" : "Save new password"}
+        </Button>
       </form>
     </AuthShell>
   );

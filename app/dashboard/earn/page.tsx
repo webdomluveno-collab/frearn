@@ -1,6 +1,6 @@
 import { EarnProviderTabs } from "@/components/earn-provider-tabs";
 import { DemoBrowser } from "@/components/demo-browser";
-import { Badge } from "@/components/ui/badge";
+import { SectionHeading } from "@/components/fx/primitives";
 import { getSurveyWall } from "@/lib/providers";
 import { isMockAllowed } from "@/lib/providers/mock";
 
@@ -15,10 +15,11 @@ export default function EarnPage() {
 
   return (
     <div className="space-y-8">
-      <div className="flex items-center gap-3">
-        <h1 className="text-2xl font-bold tracking-tight">Earn</h1>
-        {cpxLive ? <Badge tone="success">Live surveys</Badge> : <Badge tone="info">Preparing surveys</Badge>}
-      </div>
+      <SectionHeading
+        eyebrow="FIND YOUR NEXT LITTLE WIN"
+        title="A little time. Plenty of possibilities."
+        description="Pick what fits your day. Know what’s involved before you start."
+      />
 
       <EarnProviderTabs cpxLive={cpxLive} />
 

@@ -1,27 +1,49 @@
 "use client";
 
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Input, Label } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
+import { Button } from "@/components/fx/primitives";
+import { SectionHeading } from "@/components/fx/primitives";
 
 export default function ProfilePage() {
   return (
-    <div className="max-w-xl space-y-6">
-      <h1 className="text-2xl font-bold tracking-tight">Profile</h1>
-      <p className="text-sm text-muted-foreground">Only the details needed for matching. Additional provider questions can be added here later.</p>
-      <Card><CardHeader><CardTitle>Demographics</CardTitle><CardDescription>Used to match relevant opportunities.</CardDescription></CardHeader>
-        <CardContent>
-          <form className="grid gap-4" onSubmit={(e) => e.preventDefault()}>
-            <div><Label htmlFor="p-country">Country</Label><Input id="p-country" placeholder="Country" /></div>
-            <div><Label htmlFor="p-dob">Date of birth</Label><Input id="p-dob" type="date" /></div>
-            <div><Label htmlFor="p-gender">Gender</Label><Input id="p-gender" placeholder="Female / Male / Non-binary / Prefer not to say" /></div>
-            <div><Label htmlFor="p-employment">Employment status</Label><Input id="p-employment" placeholder="e.g. Employed, Student" /></div>
-            <div><Label htmlFor="p-education">Education</Label><Input id="p-education" placeholder="e.g. Bachelor's degree" /></div>
-            <div><Label htmlFor="p-household">Household size</Label><Input id="p-household" type="number" min={1} placeholder="e.g. 3" /></div>
-            <Button type="submit">Save profile</Button>
-          </form>
-        </CardContent>
-      </Card>
-    </div>
+    <>
+      <SectionHeading
+        eyebrow="MAKE YOURSELF AT HOME"
+        title="A little about you."
+        description="Only the details needed for matching. Additional provider questions can be added here later."
+      />
+      <section className="surface settings-panel">
+        <div className="settings-panel-heading">
+          <h2>Your profile details</h2>
+          <p className="muted small">Used to match relevant opportunities.</p>
+        </div>
+        <form className="form-stack" onSubmit={(e) => e.preventDefault()}>
+          <div className="field">
+            <label htmlFor="p-country">Country</label>
+            <input id="p-country" placeholder="Country" autoComplete="country-name" />
+          </div>
+          <div className="field">
+            <label htmlFor="p-dob">Date of birth</label>
+            <input id="p-dob" type="date" autoComplete="bday" />
+          </div>
+          <div className="field">
+            <label htmlFor="p-gender">Gender</label>
+            <input id="p-gender" placeholder="Female / Male / Non-binary / Prefer not to say" />
+          </div>
+          <div className="field">
+            <label htmlFor="p-employment">Employment status</label>
+            <input id="p-employment" placeholder="e.g. Employed, Student" />
+          </div>
+          <div className="field">
+            <label htmlFor="p-education">Education</label>
+            <input id="p-education" placeholder="e.g. Bachelor's degree" />
+          </div>
+          <div className="field">
+            <label htmlFor="p-household">Household size</label>
+            <input id="p-household" type="number" min={1} placeholder="e.g. 3" />
+          </div>
+          <Button type="submit">Save profile</Button>
+        </form>
+      </section>
+    </>
   );
 }

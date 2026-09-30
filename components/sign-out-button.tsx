@@ -2,8 +2,8 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { LogOut } from "lucide-react";
 import { getSupabaseBrowser } from "@/lib/auth/client";
+import { Icon } from "./fx/icon";
 
 export function SignOutButton() {
   const router = useRouter();
@@ -21,9 +21,11 @@ export function SignOutButton() {
           router.refresh();
         }
       }}
-      className="flex w-full items-center gap-2 whitespace-nowrap rounded-xl px-3 py-2 text-sm font-medium text-muted-foreground hover:bg-muted hover:text-foreground disabled:opacity-50"
+      className="nav-link"
+      style={{ width: "100%" }}
     >
-      <LogOut size={15} aria-hidden /> {loading ? "Signing out…" : "Sign out"}
+      <Icon name="logout" />
+      <span>{loading ? "Signing out…" : "Sign out"}</span>
     </button>
   );
 }

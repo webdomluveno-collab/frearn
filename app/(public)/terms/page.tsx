@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { baseMetadata } from "@/lib/seo";
+import { SectionHeading } from "@/components/fx/primitives";
 
 // TODO(legal): placeholder terms — MUST be reviewed by counsel before production.
 
@@ -21,14 +22,23 @@ export default function TermsPage() {
     ["Changes to the service", "Features, rewards, and terms may change. Material changes will be communicated."],
   ];
   return (
-    <div className="container max-w-3xl py-14">
-      <h1 className="text-3xl font-bold tracking-tight">Terms of Service</h1>
-      <p className="mt-2 text-sm text-muted-foreground">Last updated: 2026-01-01 · Placeholder — pending legal review.</p>
-      <div className="mt-6 space-y-6">
-        {sections.map(([t, b]) => (
-          <section key={t}><h2 className="font-semibold">{t}</h2><p className="mt-1 text-sm text-muted-foreground">{b}</p></section>
-        ))}
+    <main id="terms-main">
+      <a className="skip-link" href="#terms-main">Skip to content</a>
+      <div className="legal-page">
+        <SectionHeading
+          eyebrow="THE FINE PRINT, PLAINLY"
+          title="Terms of Service"
+          description="Last updated: 2026-01-01 · Placeholder — pending legal review."
+        />
+        <div className="surface">
+          {sections.map(([t, b]) => (
+            <section key={t}>
+              <h2>{t}</h2>
+              <p>{b}</p>
+            </section>
+          ))}
+        </div>
       </div>
-    </div>
+    </main>
   );
 }

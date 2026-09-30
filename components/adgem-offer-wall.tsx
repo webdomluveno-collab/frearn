@@ -1,8 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { RotateCcw } from "lucide-react";
-import { Button } from "./ui/button";
+import { Button, EmptyState } from "./fx/primitives";
 
 /**
  * Authenticated AdGem offerwall embed. The wall URL is minted server-side for
@@ -47,36 +46,32 @@ export function AdGemOfferWall() {
 
   if (state.status === "loading") {
     return (
-      <div role="status" aria-label="Loading offers" className="rounded-2xl border bg-card p-6 card-shadow">
-        <div className="h-5 w-40 animate-pulse rounded-full bg-muted" />
-        <div className="mt-4 space-y-3">
-          {[0, 1, 2].map((i) => (
-            <div key={i} className="h-16 animate-pulse rounded-2xl bg-muted/60" />
-          ))}
-        </div>
-        <p className="mt-4 text-sm text-muted-foreground">Loading offers and games…</p>
+      <div role="status" aria-label="Loading offers" aria-busy="true">
+        <div className="skeleton skeleton-row" />
+        <div className="skeleton skeleton-row" />
+        <div className="skeleton skeleton-row" />
+        <p className="muted">Loading offers and games…</p>
       </div>
     );
   }
 
   if (state.status === "error") {
     return (
-      <div role="alert" className="rounded-2xl border bg-card p-6 text-center card-shadow">
-        <p className="font-semibold">Offers unavailable right now</p>
-        <p className="mx-auto mt-1 max-w-sm text-sm text-muted-foreground">{state.message}</p>
-        <Button variant="outline" className="mt-4" onClick={() => void load()}>
-          <RotateCcw /> Try again
-        </Button>
+      <div role="alert">
+        <EmptyState icon="warning" title="Offers unavailable right now" description={state.message}>
+          <Button variant="secondary" onClick={() => void load()}>
+            Try again
+          </Button>
+        </EmptyState>
       </div>
     );
   }
 
   return (
-    <div className="overflow-hidden rounded-2xl border bg-card card-shadow">
+    <div className="wall-frame">
       <iframe
         src={state.url}
         title="Offers and games — complete offers and tasks to earn rewards"
-        className="h-[720px] min-h-[70vh] w-full border-0"
         loading="lazy"
         allowFullScreen
         // Minimal permissions an offerwall needs to render and interact:

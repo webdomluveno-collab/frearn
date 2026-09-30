@@ -22,6 +22,9 @@ function mockFetch() {
 afterEach(() => {
   cleanup();
   vi.unstubAllGlobals();
+  // The tabs sync selection to location.hash: reset it so each test starts
+  // from the default (Surveys) tab regardless of previous navigation.
+  window.history.replaceState(null, "", window.location.pathname);
 });
 
 describe("EarnProviderTabs", () => {
