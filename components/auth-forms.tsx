@@ -5,7 +5,8 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/fx/primitives";
 import { Brand } from "@/components/fx/brand";
-import { Icon, Spark } from "@/components/fx/icon";
+import { Icon } from "@/components/fx/icon";
+import { TallyMark } from "@/components/fx/tally";
 import { getSupabaseBrowser, isSupabaseConfigured } from "@/lib/auth/client";
 import { siteConfig } from "@/config/site";
 import { COUNTRIES, isValidCountryCode, normalizeCountryCode } from "@/lib/countries";
@@ -19,24 +20,28 @@ function AuthShell({ title, sub, children }: { title: string; sub: string; child
       <aside className="auth-brand-panel">
         <Brand light />
         <div className="auth-brand-story">
-          <span className="eyebrow">YOUR EVERYDAY, REWARDED</span>
+          <span className="eyebrow">YOUR TIME ADDS UP</span>
           <h2>
-            Little wins.
+            ONE SMALL
             <br />
-            Bigger possibilities<span>.</span>
+            THING.
+            <br />
+            <span>
+              THEN
+              <br />
+              ANOTHER.
+            </span>
           </h2>
           <p>
-            A survey over coffee.
-            <br />A new game on your commute.
-            <br />A little more for the things you love.
+            A survey. A game. A task.
+            <br />A growing history of time well spent.
           </p>
-          <div className="auth-art" aria-hidden="true">
-            <div />
-            <Spark size={220} />
+          <div className="auth-tally-art" aria-hidden="true">
+            <TallyMark size={250} />
             <span>
-              MAKE A LITTLE
+              EVERY MARK
               <br />
-              MORE OF YOUR DAY.
+              IS A START.
             </span>
           </div>
         </div>

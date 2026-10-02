@@ -4,6 +4,7 @@ import "./globals.css";
 import "./fx/base.css";
 import "./fx/product.css";
 import "./fx/public.css";
+import "./fx/art-direction.css";
 import { baseMetadata } from "@/lib/seo";
 
 const dmSans = localFont({
@@ -13,11 +14,18 @@ const dmSans = localFont({
   display: "swap",
 });
 
+const barlow = localFont({
+  src: "./fx/fonts/barlow-condensed-latin-700.woff2",
+  weight: "700",
+  variable: "--font-display",
+  display: "swap",
+});
+
 export const metadata: Metadata = baseMetadata();
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className={dmSans.variable}>
+    <html lang="en" className={`${dmSans.variable} ${barlow.variable}`}>
       <body>{children}</body>
     </html>
   );

@@ -1,4 +1,5 @@
 import type { CSSProperties, ReactNode } from 'react';
+import { TallyMark } from "./tally";
 export type IconName =
   | 'home'
   | 'spark'
@@ -41,7 +42,7 @@ const paths: Record<IconName, ReactNode> = {
       <path d="M9 20v-7h6v7" />
     </>
   ),
-  spark: <path d="m14 2-7 9H2l8 5-1 6 7-9h6l-8-5Z" />,
+  spark: <path d="M2 20h5M2 16h5M10 20h5M10 16h5M10 12h5M18 20h4M18 16h4M18 12h4M18 8h4M18 4h4" />,
   wallet: (
     <>
       <path d="M20 8V5H4a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h16V8H4a1.5 1.5 0 0 1 0-3" />
@@ -231,16 +232,5 @@ export function Icon({
   );
 }
 export function Spark({ className = '', size = 32 }: { className?: string; size?: number }) {
-  return (
-    <svg
-      width={size}
-      height={size}
-      viewBox="0 0 64 64"
-      fill="currentColor"
-      aria-hidden="true"
-      className={className}
-    >
-      <path d="M36 3 19 26H3l23 14-3 21 18-24h20L38 23Z" />
-    </svg>
-  );
+  return <TallyMark size={size} className={className} />;
 }

@@ -88,6 +88,13 @@ export function Modal({
     else if (!open && dialog.open) dialog.close();
   }, [open]);
   useEffect(() => {
+    const dialog = ref.current;
+    // A new dialog step may remove the focused control. Keep keyboard focus inside.
+    if (open && dialog?.open && !dialog.contains(document.activeElement)) {
+      dialog.querySelector<HTMLHeadingElement>('h2')?.focus();
+    }
+  }, [open, title]);
+  useEffect(() => {
     if (!open) return;
     const original = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
@@ -115,7 +122,9 @@ export function Modal({
       }}
     >
       <div className="modal-header">
-        <h2 id={titleId}>{title}</h2>
+        <h2 id={titleId} tabIndex={-1}>
+          {title}
+        </h2>
         <button className="icon-button" onClick={onClose} aria-label="Close dialog">
           <Icon name="close" />
         </button>

@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useState } from "react";
 import { Icon, type IconName } from "./icon";
+import { TallyMark } from "./tally";
 import { Brand } from "./brand";
 import { SignOutButton } from "../sign-out-button";
 import { centsToUsd } from "@/lib/money";
@@ -45,7 +46,7 @@ export function FxAppShell({
       </a>
       <aside className="sidebar">
         <Brand light />
-        <div className="sidebar-caption">YOUR EVERYDAY, REWARDED</div>
+        <div className="sidebar-caption">YOUR TIME ADDS UP</div>
         <nav aria-label="Main navigation" className="side-nav">
           {navigation.map((item) => (
             <Link
@@ -72,10 +73,10 @@ export function FxAppShell({
             <SignOutButton />
           </nav>
           <div className="sidebar-note">
-            <span className="tiny-spark">✳</span>
+            <TallyMark size={27} className="tiny-spark" />
             <span>
-              A little effort.
-              <br />A little more possibility.
+              A little, then
+              <br />a little more.
             </span>
           </div>
         </div>
@@ -115,7 +116,7 @@ export function FxAppShell({
         <main id="main" className="main-content" tabIndex={-1}>
           {children}
           <footer className="app-footer">
-            <span>Little wins add up.</span>
+            <span>Your time adds up.</span>
             <span>
               USD <span className="footer-divider">·</span>{" "}
               <Link href="/contact">Need a hand?</Link>

@@ -1,18 +1,18 @@
 :root {
-  --ink: #17231d;
-  --ink-soft: #26362c;
-  --lime: #ccff70;
-  --lime-hover: #b8ed5e;
-  --paper: #f5f6f3;
+  --ink: #252820;
+  --ink-soft: #36392e;
+  --lime: #e9edac;
+  --lime-hover: #dadd93;
+  --paper: #f4f0e7;
   --surface: #fff;
-  --text: #202b25;
-  --muted: #657067;
-  --line: #e2e7df;
+  --text: #252820;
+  --muted: #6b695e;
+  --line: #dcd8cc;
   --green: #2c6545;
   --red: #a43b38;
   --amber: #8a631b;
-  --radius: 12px;
-  --radius-sm: 8px;
+  --radius: 4px;
+  --radius-sm: 3px;
   --space-1: 4px;
   --space-2: 8px;
   --space-3: 12px;

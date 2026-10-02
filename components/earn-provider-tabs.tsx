@@ -150,13 +150,13 @@ export function EarnProviderTabs({ cpxLive }: { cpxLive: boolean }) {
             </span>
             <Icon name="external" size={17} />
           </button>
-          <div className="partner-row-muted" aria-label="TimeWall, pending approval">
+          <div className="partner-row-muted" aria-label="TimeWall, currently unavailable">
             <span className="partner-monogram">T</span>
             <span>
               <strong>Find a quick task</strong>
-              <span>TimeWall · Pending approval</span>
+              <span>TimeWall · Currently unavailable</span>
             </span>
-            <Badge tone="neutral">Coming later</Badge>
+            <Badge tone="neutral">Coming soon</Badge>
           </div>
         </div>
         <div className="feed-note">
