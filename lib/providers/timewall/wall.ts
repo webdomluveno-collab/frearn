@@ -35,10 +35,13 @@ export interface BuildTimewallWallInput {
 }
 
 /**
- * Build the personalized wall URL. The UUID is attached as the `userid`
- * query parameter, matching TimeWall's own postback `userid` naming
- * convention. If the official Placement URL uses a different parameter name,
- * update ONLY this function after approval — no redesign needed.
+ * Build the personalized wall URL. The UUID is attached as the `uid`
+ * query parameter, matching TimeWall's official offerwall URL contract
+ * (`.../users/login?oid=<placement>&uid=<user>`). This is intentionally
+ * different from the INBOUND postback field, which TimeWall sends back as
+ * `userid` (see ./shared.ts + process.ts — unchanged).
+ * Existing base query parameters (e.g. `oid`) are preserved via the
+ * URL/URLSearchParams API — no manual query-string concatenation.
  */
 export function buildTimewallWallUrl(input: BuildTimewallWallInput): string {
   const base = timewallWallUrl();
@@ -47,6 +50,6 @@ export function buildTimewallWallUrl(input: BuildTimewallWallInput): string {
   }
   if (!input.userId) throw new Error("userId is required to build the TimeWall wall URL.");
   const url = new URL(base);
-  url.searchParams.set("userid", input.userId);
+  url.searchParams.set("uid", input.userId);
   return url.toString();
 }

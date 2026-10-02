@@ -405,9 +405,10 @@ End-to-end (needs Supabase keys + `TIMEWALL_POSTBACK_SECRET` in `.env.local`):
 
 ### 11.8 Steps needed after TimeWall approval
 
-1. Paste the official Placement URL into `TIMEWALL_WALL_URL` (Netlify env) —
-   the Earn tab appears automatically, no code change (confirm the `userid`
-   parameter name against the issued URL; adjust only `buildTimewallWallUrl`).
+1. Paste the official Placement URL into `TIMEWALL_WALL_URL` (Netlify env),
+   e.g. `https://timewall.io/users/login?oid=6154a2b1f8661a69`. The builder
+   preserves `oid` and appends the session UUID as `uid` (outbound wall:
+   `uid=<authenticated UUID>`; inbound postback stays `userid` — different).
 2. Confirm the earn `type` value (dashboard/docs/test postback) and add it to
    `TIMEWALL_CREDITABLE_TYPES` in `lib/providers/timewall/process.ts` + tests.
 3. Confirm the acknowledgement format (`200 "1"` assumed from CPX convention).

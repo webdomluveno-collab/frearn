@@ -35,12 +35,26 @@ describe("TimeWall wall availability (placement pending approval)", () => {
     });
   });
 
-  it("attaches the session UUID as userid once the official URL is set", () => {
+  it("attaches the session UUID as uid once the official URL is set", () => {
     withWallUrl("https://wall.example.com/placement/abc", () => {
       expect(isTimewallWallAvailable()).toBe(true);
       const url = new URL(buildTimewallWallUrl({ userId: UID }));
       expect(url.origin).toBe("https://wall.example.com");
-      expect(url.searchParams.get("userid")).toBe(UID);
+      expect(url.searchParams.get("uid")).toBe(UID);
+      expect(url.searchParams.has("userid")).toBe(false);
+    });
+  });
+
+  it("preserves the official oid parameter and appends uid (regression)", () => {
+    withWallUrl("https://timewall.io/users/login?oid=6154a2b1f8661a69", () => {
+      expect(isTimewallWallAvailable()).toBe(true);
+      expect(buildTimewallWallUrl({ userId: UID })).toBe(
+        "https://timewall.io/users/login?oid=6154a2b1f8661a69&uid=aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"
+      );
+      const url = new URL(buildTimewallWallUrl({ userId: UID }));
+      expect(url.searchParams.get("oid")).toBe("6154a2b1f8661a69");
+      expect(url.searchParams.get("uid")).toBe(UID);
+      expect(url.searchParams.has("userid")).toBe(false);
     });
   });
 
