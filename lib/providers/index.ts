@@ -40,6 +40,20 @@ const surveyWalls: Record<string, SurveyWallProvider> = {
     label: "TimeWall",
     isConfigured: () => isTimewallWallAvailable(),
   },
+  // TheoremReach Phase 1 (testing only): wall availability fails closed
+  // unless api key + secret + placement are all present. Reads server env
+  // directly instead of importing ./theoremreach/server so this module stays
+  // importable anywhere (same pattern as CPX above). The secret itself is
+  // only ever touched inside ./theoremreach/server.ts (server-only).
+  // NOT exposed in the Earn UI in Phase 1.
+  theoremreach: {
+    key: "theoremreach",
+    label: "TheoremReach",
+    isConfigured: () =>
+      Boolean(process.env.THEOREMREACH_API_KEY?.trim()) &&
+      Boolean(process.env.THEOREMREACH_SECRET_KEY?.trim()) &&
+      Boolean(process.env.THEOREMREACH_PLACEMENT_ID?.trim()),
+  },
 };
 
 export function getSurveyWall(key: string): SurveyWallProvider | undefined {
