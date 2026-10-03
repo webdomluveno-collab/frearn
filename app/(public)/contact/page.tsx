@@ -20,7 +20,7 @@ export default function ContactPage() {
         <section className="surface support-panel">
           <div className="settings-panel-heading">
             <h2>Need a hand?</h2>
-            <p className="muted small">Real replies from the Freearn team — not a demo inbox.</p>
+            <p className="muted small">Real replies from the Freearn team.</p>
           </div>
           <div className="setting-action">
             <div>

@@ -48,8 +48,29 @@ npm run build
 1. Create a Supabase project (Postgres).
 2. Run `database/schema.sql` in the SQL editor, then `database/migrations/002_cpx_provider.sql`
    (ledger provider columns, provider-event status, signup trigger, Row Level Security).
-3. Set Supabase env vars (URL, anon key, service-role key).
-4. Balances are **derived** from `ledger_transactions` (see `lib/wallet/ledger.ts`). Money is integer cents in TS, `NUMERIC`/cents in Postgres — never floats.
+3. Run `database/migrations/004_fix_reversal_unique_index.sql`, then
+   `database/migrations/005_withdrawals.sql` (withdrawal request columns,
+   atomic `request_withdrawal()` / `settle_withdrawal()` RPCs).
+4. Set Supabase env vars (URL, anon key, service-role key).
+5. Balances are **derived** from `ledger_transactions` (see `lib/wallet/ledger.ts`). Money is integer cents in TS, `NUMERIC`/cents in Postgres — never floats.
+
+## 5b. Manual withdrawals (live, operator-reviewed)
+
+- Minimum $3.00 (300 cents, `MINIMUM_WITHDRAWAL_CENTS` in `lib/withdrawals.ts`,
+  mirrored by the `request_withdrawal()` RPC).
+- `POST /api/withdrawals/request` (session auth, rate-limited): validates
+  integer cents, method allowlist, and destination, then calls the atomic RPC.
+  Funds are reserved immediately as a pending negative withdrawal ledger row,
+  so the same balance can never be requested twice — even concurrently
+  (`pg_advisory_xact_lock` per user + idempotency keys).
+- Rejection refunds exactly once via an immutable zero-amount reversal marker;
+  approval confirms the hold. Both admin actions are idempotent
+  (`POST /api/admin/withdrawals/[id]/approve|reject`, deny-by-default 404).
+- Active methods: PayPal, Skrill, Revolut (@username), SOL, USDC (Solana).
+  Card is shown as Soon — no card data is ever collected or stored.
+- Destinations are masked in UI/logs; full values live only in
+  `withdrawal_requests` (service-role/RLS-protected). No migration beyond
+  `005_withdrawals.sql` is required.
 
 ## 6. How the mock provider works
 

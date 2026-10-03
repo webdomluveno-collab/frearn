@@ -38,13 +38,13 @@ export const siteConfig = {
   waitlistEnabled: true,
 
   // -- Wallet / withdrawals --
-  minimumWithdrawalCents: 500, // $5.00 — change centrally
+  minimumWithdrawalCents: 300, // $3.00 — change centrally
   currency: "USD" as const,
-  // Anticipated future methods. Do NOT present all as live; UI marks availability per country.
-  // Only methods listed in `liveWithdrawalMethods` are shown as available.
-  futureWithdrawalMethods: ["USDT", "USDC", "PayPal", "Gift cards", "Local methods"] as const,
-  liveWithdrawalMethods: [] as string[], // empty in pre-launch
-  withdrawalNote: "Available withdrawal methods may vary by country.",
+  // Only methods listed in `liveWithdrawalMethods` are submittable.
+  // Card stays planned: no card payout provider is integrated (never collect card data).
+  futureWithdrawalMethods: ["Card"] as const,
+  liveWithdrawalMethods: ["paypal", "skrill", "revolut", "sol", "usdc_solana"] as string[],
+  withdrawalNote: "Withdrawals are manually reviewed at launch.",
 
   // -- Availability --
   availabilityNote:

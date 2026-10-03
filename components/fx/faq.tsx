@@ -32,7 +32,7 @@ export const FAQ_ITEMS: FaqItem[] = [
   },
   {
     q: "How do withdrawals work?",
-    a: "Withdrawals are unavailable during early access. When enabled, you'll request a withdrawal above a minimum of $5.00. Available withdrawal methods may vary by country.",
+    a: "Request a withdrawal from $3.00. PayPal, Skrill, Revolut, SOL and USDC on Solana are active; card payouts are coming soon. Every request is manually reviewed — most within 1 hour, with up to 3 days in exceptional cases. Requested funds are reserved immediately and returned if a request is rejected.",
   },
   {
     q: "What information do I need to provide?",

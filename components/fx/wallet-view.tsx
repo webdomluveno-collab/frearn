@@ -1,22 +1,290 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import { centsToUsd } from "@/lib/money";
 import { siteConfig } from "@/config/site";
 import { toFxTransaction, type FxTransaction } from "@/lib/fx";
 import type { WalletSummary } from "@/lib/wallet/ledger";
-import { Button, EmptyState, SectionHeading } from "@/components/fx/primitives";
+import {
+  ACTIVE_WITHDRAWAL_METHODS,
+  isActiveWithdrawalMethod,
+  isValidDestination,
+  MINIMUM_WITHDRAWAL_CENTS,
+  parseAmountCents,
+  WITHDRAWAL_METHOD_META,
+  type ActiveWithdrawalMethod,
+} from "@/lib/withdrawals";
+import { Badge, Button, EmptyState, Progress, SectionHeading } from "@/components/fx/primitives";
 import { Icon } from "@/components/fx/icon";
 import { TransactionList } from "@/components/fx/transactions";
 import type { LedgerTransaction } from "@/types";
 
-export function WalletView({ txns, summary }: { txns: LedgerTransaction[]; summary: WalletSummary }) {
+/** Server-masked withdrawal row — the browser never receives full destinations. */
+export interface WithdrawalListItem {
+  id: string;
+  amountCents: number;
+  method: string;
+  methodLabel: string;
+  maskedDestination: string;
+  status: string;
+  createdAt: string;
+}
+
+const ERROR_COPY: Record<string, string> = {
+  invalid_amount: "Enter an amount like 3.00.",
+  below_minimum: `The minimum withdrawal is ${centsToUsd(MINIMUM_WITHDRAWAL_CENTS)}.`,
+  insufficient_balance: "That amount is more than your available balance.",
+  invalid_method: "Choose an available payout method.",
+  invalid_destination: "Check the destination — it doesn't look valid for this method.",
+  duplicate_request: "This request was already submitted.",
+  rate_limited: "Too many attempts. Wait a minute and try again.",
+  unauthenticated: "Please sign in again and try again.",
+  unavailable: "Withdrawals are temporarily unavailable. Please try again later.",
+};
+
+function statusTone(status: string): string {
+  if (status === "paid") return "green";
+  if (status === "rejected") return "red";
+  return "amber";
+}
+
+function statusHelp(status: string): string {
+  if (status === "paid") return "Your withdrawal has been sent.";
+  if (status === "rejected")
+    return "This withdrawal was not completed. Reserved funds were returned to your available balance.";
+  return "Your withdrawal is waiting for review.";
+}
+
+function WithdrawalForm({ availableCents, onDone }: { availableCents: number; onDone: () => void }) {
+  const router = useRouter();
+  const [amount, setAmount] = useState("");
+  const [method, setMethod] = useState<ActiveWithdrawalMethod>("paypal");
+  const [destination, setDestination] = useState("");
+  const [stage, setStage] = useState<"edit" | "review">("edit");
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  // One idempotency key per review instance: retries and double-clicks
+  // collapse server-side instead of deducting twice.
+  const requestKey = useRef(
+    typeof crypto !== "undefined" && "randomUUID" in crypto ? crypto.randomUUID() : null
+  );
+
+  const meta = WITHDRAWAL_METHOD_META[method];
+  const cents = useMemo(() => parseAmountCents(amount), [amount]);
+  const destOk = useMemo(
+    () => isValidDestination(method, destination),
+    [method, destination]
+  );
+
+  function review(e: React.FormEvent) {
+    e.preventDefault();
+    setError(null);
+    if (cents === null || cents <= 0) return setError(ERROR_COPY.invalid_amount);
+    if (cents < MINIMUM_WITHDRAWAL_CENTS) return setError(ERROR_COPY.below_minimum);
+    if (cents > availableCents) return setError(ERROR_COPY.insufficient_balance);
+    if (!destOk) return setError(ERROR_COPY.invalid_destination);
+    setStage("review");
+  }
+
+  async function submit() {
+    if (busy || cents === null) return;
+    setBusy(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/withdrawals/request", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        credentials: "same-origin",
+        body: JSON.stringify({
+          amountCents: cents,
+          method,
+          destination: destination.trim(),
+          requestKey: requestKey.current,
+        }),
+      });
+      const data = (await res.json().catch(() => ({}))) as { error?: string };
+      if (!res.ok) {
+        setError(ERROR_COPY[data.error ?? "unavailable"] ?? ERROR_COPY.unavailable);
+        setStage("edit");
+        return;
+      }
+      onDone();
+      router.refresh();
+    } catch {
+      setError(ERROR_COPY.unavailable);
+      setStage("edit");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  if (stage === "review" && cents !== null) {
+    return (
+      <div className="surface settings-panel" aria-live="polite">
+        <div className="settings-panel-heading">
+          <h2>Check your request</h2>
+          <p className="muted small">Funds are reserved only when you confirm.</p>
+        </div>
+        <dl className="review-list">
+          <div>
+            <dt>Amount</dt>
+            <dd>{centsToUsd(cents)}</dd>
+          </div>
+          <div>
+            <dt>Method</dt>
+            <dd>{meta.label}</dd>
+          </div>
+          <div>
+            <dt>Destination</dt>
+            <dd className="mono">{maskPreview(method, destination)}</dd>
+          </div>
+        </dl>
+        <p className="muted small">
+          Most requests are reviewed within 1 hour; exceptional cases may take up to 3 days.
+          Reserved funds return to your balance if a request is rejected.
+        </p>
+        {error && (
+          <p className="form-error" role="alert">
+            {error}
+          </p>
+        )}
+        <div className="form-actions">
+          <Button variant="secondary" onClick={() => setStage("edit")} disabled={busy}>
+            Back
+          </Button>
+          <Button onClick={submit} disabled={busy} aria-busy={busy}>
+            {busy ? "Submitting…" : `Confirm ${centsToUsd(cents)} withdrawal`}
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <form
+      className="surface settings-panel"
+      onSubmit={review}
+      aria-label="Request a withdrawal"
+      noValidate
+    >
+      <div className="settings-panel-heading">
+        <h2>Request a withdrawal</h2>
+        <p className="muted small">
+          Manual review at launch. Reserved funds return if a request is rejected.
+        </p>
+      </div>
+      <div className="field">
+        <label htmlFor="wd-amount">Amount (USD)</label>
+        <div className="amount-row">
+          <input
+            id="wd-amount"
+            inputMode="decimal"
+            autoComplete="off"
+            placeholder="3.00"
+            value={amount}
+            onChange={(e) => setAmount(e.target.value)}
+            aria-describedby="wd-amount-help"
+          />
+          <Button
+            type="button"
+            variant="secondary"
+            onClick={() => setAmount((availableCents / 100).toFixed(2))}
+          >
+            Max
+          </Button>
+        </div>
+        <p className="muted small" id="wd-amount-help">
+          Minimum {centsToUsd(MINIMUM_WITHDRAWAL_CENTS)}. Available: {centsToUsd(availableCents)}.
+        </p>
+      </div>
+      <div className="field">
+        <span className="field-label" id="wd-method-label">
+          Payout method
+        </span>
+        <div className="method-grid" role="group" aria-labelledby="wd-method-label">
+          {ACTIVE_WITHDRAWAL_METHODS.map((m) => (
+            <button
+              key={m}
+              type="button"
+              className={method === m ? "selected" : ""}
+              aria-pressed={method === m}
+              onClick={() => {
+                setMethod(m);
+                setDestination("");
+              }}
+            >
+              {WITHDRAWAL_METHOD_META[m].label}
+            </button>
+          ))}
+          <button type="button" disabled title="No card payout provider integrated yet">
+            Card — Soon
+          </button>
+        </div>
+      </div>
+      <div className="field">
+        <label htmlFor="wd-destination">{meta.destinationLabel}</label>
+        <input
+          id="wd-destination"
+          autoComplete="off"
+          spellCheck={false}
+          placeholder={meta.destinationPlaceholder}
+          value={destination}
+          onChange={(e) => setDestination(e.target.value)}
+          aria-describedby="wd-destination-help"
+        />
+        <p className="muted small" id="wd-destination-help">
+          {meta.destinationHint}
+        </p>
+      </div>
+      {error && (
+        <p className="form-error" role="alert">
+          {error}
+        </p>
+      )}
+      <Button type="submit" className="full-width">
+        Review withdrawal
+      </Button>
+    </form>
+  );
+}
+
+/** Client-side masked preview (mirrors server maskDestination for the confirm step). */
+function maskPreview(method: ActiveWithdrawalMethod, destination: string): string {
+  const v = destination.trim();
+  if (method === "paypal" || method === "skrill") {
+    const at = v.indexOf("@");
+    if (at <= 0) return "••••";
+    return `${v.slice(0, 1)}***@${v.slice(at + 1) || "•••"}`;
+  }
+  if (method === "revolut") {
+    const handle = v.startsWith("@") ? v.slice(1) : v;
+    if (handle.length < 3) return "@•••";
+    return `@${handle.slice(0, 2)}***${handle.slice(-2)}`;
+  }
+  if (v.length < 8) return "••••";
+  return `${v.slice(0, 4)}…${v.slice(-4)}`;
+}
+
+export function WalletView({
+  txns,
+  summary,
+  withdrawals,
+}: {
+  txns: LedgerTransaction[];
+  summary: WalletSummary;
+  withdrawals: WithdrawalListItem[];
+}) {
   const [tab, setTab] = useState("activity");
   const [status, setStatus] = useState("all");
+  const [showForm, setShowForm] = useState(false);
+  const [justRequested, setJustRequested] = useState(false);
   const items: FxTransaction[] = txns.map(toFxTransaction);
   const filtered = items.filter((item) => status === "all" || item.status === status);
 
   const { availableCents, pendingCents, lifetimeCents } = summary;
+  const canWithdraw = availableCents >= MINIMUM_WITHDRAWAL_CENTS;
+  const progress = Math.min(100, (availableCents / MINIMUM_WITHDRAWAL_CENTS) * 100);
 
   return (
     <>
@@ -25,20 +293,31 @@ export function WalletView({ txns, summary }: { txns: LedgerTransaction[]; summa
         title="Every little win has a home."
         description="Your rewards, your history, and a clear next step."
       >
-        <Button disabled title="Withdrawals are not available yet">
-          <Icon name="wallet" size={18} />
-          {availableCents < siteConfig.minimumWithdrawalCents
-            ? `Withdraw from ${centsToUsd(siteConfig.minimumWithdrawalCents)}`
-            : "Withdraw rewards"}
-        </Button>
+        {canWithdraw ? (
+          <Button onClick={() => setShowForm((v) => !v)} aria-expanded={showForm}>
+            <Icon name="wallet" size={18} />
+            {showForm ? "Close withdrawal form" : "Withdraw rewards"}
+          </Button>
+        ) : (
+          <Button disabled title={`Withdrawals open at ${centsToUsd(MINIMUM_WITHDRAWAL_CENTS)}`}>
+            <Icon name="wallet" size={18} />
+            Withdraw from {centsToUsd(MINIMUM_WITHDRAWAL_CENTS)}
+          </Button>
+        )}
       </SectionHeading>
+      {justRequested && (
+        <div className="notice" role="status">
+          <Icon name="check" size={16} />
+          <p>Request received — it is now pending manual review.</p>
+        </div>
+      )}
       <div className="wallet-balances">
         <section className="wallet-primary">
           <div>
             <span className="eyebrow">AVAILABLE TO WITHDRAW</span>
           </div>
           <strong className="wallet-total">{centsToUsd(availableCents)}</strong>
-          <p>Confirmed rewards. Ready when you are.</p>
+          <p>Confirmed rewards, minus any reserved withdrawals.</p>
           <span className="wallet-currency">USD</span>
         </section>
         <section className="wallet-stat">
@@ -66,12 +345,37 @@ export function WalletView({ txns, summary }: { txns: LedgerTransaction[]; summa
           </p>
         </section>
       </div>
+      {!canWithdraw && (
+        <section className="surface threshold-panel" aria-label="Withdrawal threshold">
+          <div>
+            <strong>
+              {centsToUsd(availableCents)} / {centsToUsd(MINIMUM_WITHDRAWAL_CENTS)}
+            </strong>
+            <p className="muted small">
+              Withdrawals open at {centsToUsd(MINIMUM_WITHDRAWAL_CENTS)}. Every little win counts
+              toward it.
+            </p>
+          </div>
+          <Progress value={progress} label="Progress toward the withdrawal minimum" />
+        </section>
+      )}
+      {showForm && canWithdraw && (
+        <WithdrawalForm
+          availableCents={availableCents}
+          onDone={() => {
+            setShowForm(false);
+            setJustRequested(true);
+            setTab("withdrawals");
+          }}
+        />
+      )}
       <div className="money-note">
         <Icon name="help" size={18} />
         <p>
           Pending rewards can be confirmed or reversed after review. Your available balance
           reflects confirmed ledger activity, including adjustments and withdrawals.{" "}
-          {siteConfig.withdrawalNote} Withdrawals aren&apos;t available yet.
+          {siteConfig.withdrawalNote} Most requests are reviewed within 1 hour; exceptional cases
+          may take up to 3 days.
         </p>
       </div>
       <section className="surface ledger-panel">
@@ -89,7 +393,7 @@ export function WalletView({ txns, summary }: { txns: LedgerTransaction[]; summa
               aria-pressed={tab === "withdrawals"}
               onClick={() => setTab("withdrawals")}
             >
-              Withdrawals
+              Withdrawals{withdrawals.length > 0 ? ` (${withdrawals.length})` : ""}
             </button>
           </div>
           {tab === "activity" && (
@@ -118,11 +422,38 @@ export function WalletView({ txns, summary }: { txns: LedgerTransaction[]; summa
               }
             />
           )
+        ) : withdrawals.length ? (
+          <ul className="wd-list">
+            {withdrawals.map((w) => (
+              <li key={w.id} className="wd-row">
+                <span className="wd-icon" aria-hidden="true">
+                  <Icon name="wallet" size={18} />
+                </span>
+                <span className="wd-main">
+                  <strong>
+                    {centsToUsd(w.amountCents)} · {w.methodLabel}
+                  </strong>
+                  <span className="muted small">
+                    {w.maskedDestination} ·{" "}
+                    {new Date(w.createdAt).toLocaleDateString("en-US", {
+                      month: "short",
+                      day: "numeric",
+                      year: "numeric",
+                    })}
+                  </span>
+                  <span className="muted small">{statusHelp(w.status)}</span>
+                </span>
+                <Badge tone={statusTone(w.status)}>
+                  {w.status === "requested" ? "Pending" : w.status === "paid" ? "Paid" : w.status}
+                </Badge>
+              </li>
+            ))}
+          </ul>
         ) : (
           <EmptyState
             icon="wallet"
-            title="Withdrawals aren't available yet."
-            description="When withdrawals open, your requests and their status will appear here. Nothing is owed or promised until then."
+            title="No withdrawals yet."
+            description={`When you request a withdrawal from ${centsToUsd(MINIMUM_WITHDRAWAL_CENTS)}, it will appear here with its review status.`}
           />
         )}
       </section>

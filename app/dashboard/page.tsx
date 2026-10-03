@@ -3,9 +3,10 @@ import { getSessionUser } from "@/lib/auth/server";
 import { getMyLedger } from "@/lib/db/wallet";
 import { summarizeLedger } from "@/lib/wallet/ledger";
 import { centsToUsd } from "@/lib/money";
+import { siteConfig } from "@/config/site";
 import { displayName, toFxTransaction, weekBuckets } from "@/lib/fx";
 import { getSurveyWall } from "@/lib/providers";
-import { Button } from "@/components/fx/primitives";
+import { ButtonLink } from "@/components/fx/primitives";
 import { Icon } from "@/components/fx/icon";
 import { OpportunityArt } from "@/components/fx/opportunity-art";
 import { TallyMark } from "@/components/fx/tally";
@@ -54,13 +55,11 @@ export default async function DashboardOverview() {
           <small>Confirmed over time</small>
         </div>
         <div>
-          <Button
-            variant="secondary"
-            disabled
-            title="Withdrawals are not available yet"
-          >
-            {s.availableCents < 500 ? "Withdraw from $5.00" : "Withdraw rewards"}
-          </Button>
+          <ButtonLink href="/dashboard/wallet" variant="secondary" className="full-width">
+            {s.availableCents < siteConfig.minimumWithdrawalCents
+              ? `Withdraw from ${centsToUsd(siteConfig.minimumWithdrawalCents)}`
+              : "Withdraw rewards"}
+          </ButtonLink>
           <Link href="/dashboard/wallet" className="money-history-link">
             See wallet &amp; history ↗
           </Link>

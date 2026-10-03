@@ -3,6 +3,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { centsToUsd } from "@/lib/money";
 import { getSessionUser, isAdminEmail, isSupabaseConfigured } from "@/lib/auth/server";
 import { getCpxAdminStats } from "@/lib/db/cpx-store";
+import { listPendingWithdrawals } from "@/lib/db/withdrawals";
+import { AdminWithdrawalActions } from "@/components/admin-withdrawals";
 
 export default async function AdminPage() {
   // Defense in depth: middleware already 404s non-admins; re-check here.
@@ -12,6 +14,10 @@ export default async function AdminPage() {
   const stats = isSupabaseConfigured() && process.env.SUPABASE_SERVICE_ROLE_KEY
     ? await getCpxAdminStats()
     : null;
+  const pendingWithdrawals =
+    isSupabaseConfigured() && process.env.SUPABASE_SERVICE_ROLE_KEY
+      ? await listPendingWithdrawals().catch(() => [])
+      : [];
 
   const cards: Array<[string, string]> = stats
     ? [
@@ -42,6 +48,10 @@ export default async function AdminPage() {
           <CardContent><p className="text-2xl font-bold">{v}</p></CardContent></Card>
         ))}
       </div>
+      <section>
+        <h2 className="font-semibold">Pending withdrawals (manual review)</h2>
+        <AdminWithdrawalActions rows={pendingWithdrawals} />
+      </section>
       <section>
         <h2 className="font-semibold">Recent CPX events</h2>
         {!stats || stats.recent.length === 0 ? (
