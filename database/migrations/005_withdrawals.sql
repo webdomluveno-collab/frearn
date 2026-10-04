@@ -245,5 +245,10 @@ $$;
 -- Only service-role (and postgres) may execute: API routes call via
 -- getSupabaseAdmin() after session/admin checks. Explicitly revoke from
 -- anon/authenticated so RLS deny-by-default extends to the RPC surface.
+-- NOTE: revoking from PUBLIC also strips service_role (it bypasses RLS but
+-- not function EXECUTE privileges), so access is explicitly re-granted below.
+-- Without the grants, every withdrawal RPC would fail with permission denied.
 revoke all on function request_withdrawal(uuid, int, text, text, text) from public, anon, authenticated;
 revoke all on function settle_withdrawal(uuid, text, text) from public, anon, authenticated;
+grant execute on function request_withdrawal(uuid, int, text, text, text) to service_role;
+grant execute on function settle_withdrawal(uuid, text, text) to service_role;

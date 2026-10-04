@@ -102,7 +102,24 @@ describe("migration 005 atomicity guarantees (SQL review pins)", () => {
     expect(sql).toMatch(/revoke all on function settle_withdrawal[\s\S]*from public, anon, authenticated/);
   });
 
+  it("RPCs explicitly grant EXECUTE to service_role (revoking PUBLIC strips it)", () => {
+    // Static pin only: real privilege behavior (service_role can execute,
+    // anon/authenticated cannot) still needs live-DB verification with
+    // has_function_privilege() after migration 005 is applied.
+    expect(sql).toMatch(
+      /grant execute on function request_withdrawal\(uuid, int, text, text, text\) to service_role/
+    );
+    expect(sql).toMatch(
+      /grant execute on function settle_withdrawal\(uuid, text, text\) to service_role/
+    );
+  });
+
   it("no destructive statements", () => {
     expect(sql.toLowerCase()).not.toMatch(/drop table|delete from|truncate/);
+  });
+
+  it("SECURITY DEFINER functions keep a fixed safe search_path", () => {
+    expect(sql.match(/^security definer$/gim)?.length).toBe(2);
+    expect(sql.match(/^set search_path = public$/gim)?.length).toBe(2);
   });
 });
