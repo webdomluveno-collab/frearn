@@ -6,11 +6,9 @@
  * checks are unit-testable anywhere — a guard test pins that no secret
  * reference may ever appear in this file.
  *
- * Controlled live test: the placement is approved, but TimeWall stays hidden
- * from normal users. Wall access additionally requires an exact match with
- * the server-only `TIMEWALL_TEST_USER_ID` (see isTimewallTestUser). The Earn
- * UI and the wall route both enforce this server-side; when unset, nobody
- * has access. Remove the gate only for public rollout.
+ * TimeWall is live for all authenticated users. Callers (Earn UI, wall route)
+ * run server-side and always build the URL from the trusted session UUID;
+ * the browser never supplies identity.
  */
 
 export function timewallWallUrl(): string | null {
@@ -29,20 +27,6 @@ export function timewallWallUrl(): string | null {
 /** True only once the official Placement URL is configured. */
 export function isTimewallWallAvailable(): boolean {
   return timewallWallUrl() !== null;
-}
-
-/**
- * Controlled live-test gate: true only for the exact authenticated test
- * user. Server-side only in effect — callers (Earn page, wall route) run on
- * the server and compare the session UUID; the UUID itself is never rendered
- * or sent to the browser. Unset/empty env ⇒ nobody has access (fail closed).
- * No query-string, body, or client value can satisfy this: only the trusted
- * session UUID is ever compared.
- */
-export function isTimewallTestUser(userId: string | null | undefined): boolean {
-  const allowed = process.env.TIMEWALL_TEST_USER_ID?.trim();
-  if (!allowed) return false;
-  return userId === allowed;
 }
 
 export interface BuildTimewallWallInput {

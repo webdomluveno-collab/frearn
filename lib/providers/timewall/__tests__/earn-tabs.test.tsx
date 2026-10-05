@@ -24,61 +24,49 @@ afterEach(() => {
   window.history.replaceState(null, "", window.location.pathname);
 });
 
-describe("EarnProviderTabs TimeWall gating (controlled live test)", () => {
-  it("normal users see no TimeWall tab, panel, or iframe", () => {
+describe("EarnProviderTabs TimeWall (live for authenticated users)", () => {
+  it("all users see the TimeWall tab — no test gate, no unavailable copy", () => {
     mockFetch();
     render(<EarnProviderTabs cpxLive />);
-    expect(screen.queryByRole("tab", { name: /timewall/i })).not.toBeInTheDocument();
-    expect(screen.queryByTitle(/timewall tasks/i)).not.toBeInTheDocument();
-    // The honest unavailable state remains.
-    expect(screen.getByLabelText("TimeWall, currently unavailable")).toBeInTheDocument();
+    const tab = screen.getByRole("tab", { name: "TimeWall" });
+    expect(tab).toHaveAttribute("aria-selected", "false");
+    expect(screen.queryByLabelText("TimeWall, currently unavailable")).not.toBeInTheDocument();
+    expect(screen.queryByText(/coming soon/i)).not.toBeInTheDocument();
   });
 
-  it("a #timewall hash cannot force the tab for normal users", () => {
+  it("a #timewall hash selects the tab directly", () => {
     mockFetch();
     window.history.replaceState(null, "", "#timewall");
     render(<EarnProviderTabs cpxLive />);
-    expect(screen.queryByRole("tab", { name: /timewall/i })).not.toBeInTheDocument();
-    // Falls back to Surveys content, not a broken panel.
-    expect(screen.getByRole("tab", { name: "Surveys" })).toHaveAttribute("aria-selected", "true");
+    expect(screen.getByRole("tab", { name: "TimeWall" })).toHaveAttribute("aria-selected", "true");
   });
 
-  it("test account sees the TimeWall tab labeled as test access", () => {
+  it("selecting the TimeWall tab shows the launcher and mounts no iframe", async () => {
     mockFetch();
-    render(<EarnProviderTabs cpxLive timewallTestAccess />);
-    const tab = screen.getByRole("tab", { name: /timewall/i });
-    expect(tab).toHaveAttribute("aria-selected", "false");
-    expect(tab.textContent).toMatch(/test/i);
-  });
-
-  it("selecting the TimeWall tab mounts only its wall with the server URL", async () => {
-    const fetch = mockFetch();
-    render(<EarnProviderTabs cpxLive timewallTestAccess />);
-    fireEvent.click(screen.getByRole("tab", { name: /timewall/i }));
-    const iframe = (await screen.findByTitle(/timewall tasks/i)) as HTMLIFrameElement;
-    expect(fetch).toHaveBeenCalledWith("/api/providers/timewall/wall", expect.anything());
-    // Server-minted URL: official placement preserved, session UUID attached.
-    expect(iframe.src).toContain("oid=6154a2b1f8661a69");
-    expect(iframe.src).toContain("uid=test-user-uuid");
-    expect(iframe.src).not.toContain("userid=");
-    // Single-iframe discipline: other providers unmount.
+    render(<EarnProviderTabs cpxLive />);
+    fireEvent.click(screen.getByRole("tab", { name: "TimeWall" }));
+    expect(await screen.findByRole("link", { name: /open timewall/i })).toBeInTheDocument();
+    expect(document.querySelector("iframe")).toBeNull();
+    // Single-provider discipline: other providers unmount.
     expect(screen.queryByTitle(/complete surveys matched/i)).not.toBeInTheDocument();
     expect(screen.queryByTitle(/complete offers and tasks/i)).not.toBeInTheDocument();
   });
 
-  it("partner list offers a working TimeWall shortcut only to the test account", () => {
+  it("partner list offers a working TimeWall shortcut", () => {
     mockFetch();
-    render(<EarnProviderTabs cpxLive timewallTestAccess />);
-    fireEvent.click(screen.getByRole("button", { name: /timewall.*test access/i }));
-    expect(screen.getByRole("tab", { name: /timewall/i })).toHaveAttribute("aria-selected", "true");
+    render(<EarnProviderTabs cpxLive />);
+    fireEvent.click(screen.getByRole("button", { name: /timewall.*new tab/i }));
+    expect(screen.getByRole("tab", { name: "TimeWall" })).toHaveAttribute("aria-selected", "true");
   });
 });
 
-describe("TimewallWall", () => {
+describe("TimewallWall (new-tab launcher)", () => {
   it("shows a loading state instead of a blank rectangle", () => {
     vi.stubGlobal("fetch", vi.fn(() => new Promise(() => {})));
     render(<TimewallWall />);
     expect(screen.getByRole("status", { name: "Loading tasks" })).toBeInTheDocument();
+    // No action is available while the URL is being fetched (no double-click spam).
+    expect(screen.queryByRole("link", { name: /open timewall/i })).not.toBeInTheDocument();
   });
 
   it("shows a recoverable error with Retry that refetches", async () => {
@@ -90,17 +78,22 @@ describe("TimewallWall", () => {
     vi.stubGlobal("fetch", fn);
     render(<TimewallWall />);
     expect(await screen.findByRole("alert")).toBeInTheDocument();
+    expect(await screen.findByRole("button", { name: /try again/i })).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: /try again/i }));
-    expect(await screen.findByTitle(/timewall tasks/i)).toBeInTheDocument();
+    expect(await screen.findByRole("link", { name: /open timewall/i })).toBeInTheDocument();
     expect(fn).toHaveBeenCalledTimes(2);
   });
 
-  it("renders no secrets and constrains the iframe", async () => {
+  it("opens the server-minted URL in a new tab, without an iframe or secrets", async () => {
     mockFetch();
     render(<TimewallWall />);
-    const iframe = (await screen.findByTitle(/timewall tasks/i)) as HTMLIFrameElement;
-    expect(iframe.getAttribute("sandbox")).toBe("allow-scripts allow-same-origin allow-forms allow-popups");
-    expect(iframe.hasAttribute("allow")).toBe(false);
+    const link = (await screen.findByRole("link", { name: /open timewall/i })) as HTMLAnchorElement;
+    expect(link.href).toContain("oid=6154a2b1f8661a69");
+    expect(link.href).toContain("uid=test-user-uuid");
+    expect(link.target).toBe("_blank");
+    expect(link.rel).toContain("noopener");
+    expect(link.rel).toContain("noreferrer");
+    expect(document.querySelector("iframe")).toBeNull();
     expect(document.body.textContent).not.toMatch(/SECRET|service_role/i);
   });
 });

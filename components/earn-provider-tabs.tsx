@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { AdGemOfferWall } from "./adgem-offer-wall";
 import { CpxSurveyWall } from "./cpx-survey-wall";
 import { TimewallWall } from "./timewall-wall";
@@ -19,9 +19,8 @@ interface EarnTab {
 const BASE_TABS: EarnTab[] = [
   { key: "surveys", label: "Surveys", hash: "#surveys" },
   { key: "offers", label: "Offers & Games", hash: "#offers" },
+  { key: "timewall", label: "TimeWall", hash: "#timewall" },
 ];
-
-const TIMEWALL_TAB: EarnTab = { key: "timewall", label: "TimeWall", hash: "#timewall" };
 
 function tabForHash(tabs: EarnTab[], hash: string): ProviderKey {
   return tabs.find((t) => t.hash === hash)?.key ?? "surveys";
@@ -29,30 +28,21 @@ function tabForHash(tabs: EarnTab[], hash: string): ProviderKey {
 
 /**
  * Earn provider selector. Accessible tablist (arrow-key navigation, roving
- * tabindex); only the selected provider's wall is mounted so a single
- * third-party iframe ever loads. Defaults to Surveys (existing UX).
+ * tabindex); only the selected provider's panel is mounted (CPX/AdGem walls
+ * render a single third-party iframe; TimeWall opens in a new tab).
+ * Defaults to Surveys (existing UX).
  * The selection syncs to the URL hash so provider cards elsewhere can
  * deep-link to a tab without full-page navigation.
  *
- * TimeWall appears ONLY when `timewallTestAccess` is true — a server-computed
- * prop that is true solely for the controlled live-test account. Normal users
- * never receive the tab, panel, or wall component.
+ * TimeWall is live for all authenticated users: its wall URL is minted
+ * server-side per session and opened in a new tab.
  */
-export function EarnProviderTabs({
-  cpxLive,
-  timewallTestAccess = false,
-}: {
-  cpxLive: boolean;
-  timewallTestAccess?: boolean;
-}) {
-  const TABS: EarnTab[] = useMemo(
-    () => (timewallTestAccess ? [...BASE_TABS, TIMEWALL_TAB] : BASE_TABS),
-    [timewallTestAccess]
-  );
+export function EarnProviderTabs({ cpxLive }: { cpxLive: boolean }) {
+  const TABS = BASE_TABS;
   const [selected, setSelected] = useState<ProviderKey>("surveys");
   const tabRefs = useRef<Array<HTMLButtonElement | null>>([]);
 
-  // A hash for a tab this viewer may not see (e.g. #timewall) falls back to Surveys.
+  // An unknown hash falls back to Surveys.
   useEffect(() => {
     setSelected(tabForHash(TABS, window.location.hash));
     const onHash = () => setSelected(tabForHash(TABS, window.location.hash));
@@ -103,7 +93,6 @@ export function EarnProviderTabs({
             >
               <Icon name={t.key === "surveys" ? "survey" : t.key === "timewall" ? "task" : "game"} size={18} />
               {t.label}
-              {t.key === "timewall" && <Badge tone="neutral">Test</Badge>}
             </button>
           ))}
         </div>
@@ -138,13 +127,12 @@ export function EarnProviderTabs({
             )}
           </section>
         ) : selected === "timewall" ? (
-          <section aria-label="TimeWall tasks" className="space-y-4">
+          <section aria-label="TimeWall" className="space-y-4">
             <div className="section-title">
               <div>
-                <h2>TimeWall tasks</h2>
-                <p>Complete tasks and earn rewards. Test access.</p>
+                <h2>TimeWall</h2>
+                <p>Surveys, tasks, games and more. Availability varies by location and eligibility.</p>
               </div>
-              <Badge tone="neutral">Test access</Badge>
             </div>
             <TimewallWall />
           </section>
@@ -186,25 +174,14 @@ export function EarnProviderTabs({
             </span>
             <Icon name="external" size={17} />
           </button>
-          {timewallTestAccess ? (
-            <button onClick={() => select("timewall")}>
-              <span className="partner-monogram">T</span>
-              <span>
-                <strong>Find a quick task</strong>
-                <span>TimeWall · Test access</span>
-              </span>
-              <Icon name="external" size={17} />
-            </button>
-          ) : (
-            <div className="partner-row-muted" aria-label="TimeWall, currently unavailable">
-              <span className="partner-monogram">T</span>
-              <span>
-                <strong>Find a quick task</strong>
-                <span>TimeWall · Currently unavailable</span>
-              </span>
-              <Badge tone="neutral">Coming soon</Badge>
-            </div>
-          )}
+          <button onClick={() => select("timewall")}>
+            <span className="partner-monogram">T</span>
+            <span>
+              <strong>Do tasks and more</strong>
+              <span>TimeWall · Open in a new tab</span>
+            </span>
+            <Icon name="external" size={17} />
+          </button>
         </div>
         <div className="feed-note">
           <Icon name="help" size={17} />

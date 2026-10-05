@@ -1,14 +1,16 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { Button, EmptyState } from "./fx/primitives";
+import { Button, ButtonLink, EmptyState } from "./fx/primitives";
 
 /**
- * Authenticated TimeWall offerwall embed (controlled live test only).
- * The wall URL is minted server-side for the signed-in test user
- * (/api/providers/timewall/wall) — the browser never sees secrets and never
- * supplies the user id. Mounted only behind the server-computed
- * `timewallTestAccess` prop in Earn tabs; never rendered for normal users.
+ * TimeWall launcher (live for all authenticated users).
+ * The personalized wall URL is minted server-side for the signed-in user
+ * (/api/providers/timewall/wall) and opened in a new tab — TimeWall sessions
+ * are unreliable inside embedded iframes, while a normal tab works. The
+ * browser never sees secrets and never supplies the user id. The action
+ * button stays disabled while the URL is being fetched (no double-click
+ * spam); failures show a friendly retry instead of backend errors.
  */
 export function TimewallWall() {
   const [state, setState] = useState<{ status: "loading" } | { status: "error"; message: string } | { status: "ready"; url: string }>({
@@ -48,7 +50,7 @@ export function TimewallWall() {
         <div className="skeleton skeleton-row" />
         <div className="skeleton skeleton-row" />
         <div className="skeleton skeleton-row" />
-        <p className="muted">Loading tasks…</p>
+        <p className="muted">Preparing your TimeWall…</p>
       </div>
     );
   }
@@ -66,18 +68,14 @@ export function TimewallWall() {
   }
 
   return (
-    <div className="wall-frame">
-      <iframe
-        src={state.url}
-        title="TimeWall tasks — complete tasks and earn rewards"
-        loading="lazy"
-        allowFullScreen
-        // TimeWall is the same interaction class as the other offerwalls
-        // (renders pages, submits forms, opens provider links): scripts +
-        // forms + popups. Deliberately no `allow` attribute (no
-        // camera/mic/location) and no top-level navigation.
-        sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
-      />
+    <div className="surface muted-panel">
+      <p>
+        <strong>Your personal TimeWall is ready.</strong>
+      </p>
+      <p className="muted">Complete surveys, tasks, games and more. Opens in a new tab.</p>
+      <ButtonLink href={state.url} target="_blank" rel="noopener noreferrer">
+        Open TimeWall
+      </ButtonLink>
     </div>
   );
 }

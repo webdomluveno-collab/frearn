@@ -1,21 +1,19 @@
 import { NextResponse } from "next/server";
 import { getSessionUser } from "@/lib/auth/server";
-import { buildTimewallWallUrl, isTimewallTestUser, isTimewallWallAvailable } from "@/lib/providers/timewall/wall";
+import { buildTimewallWallUrl, isTimewallWallAvailable } from "@/lib/providers/timewall/wall";
 
 /**
  * Returns the authenticated user's personal TimeWall wall URL.
- * Controlled live test: in addition to auth and placement configuration,
- * only the exact test user (server-only TIMEWALL_TEST_USER_ID) may mint a
- * URL — everyone else receives the same 503 as an unconfigured wall, so no
- * test access is revealed. Auth required: userId always comes from the
- * trusted server session, never from browser input.
+ * Live for all authenticated users. The URL is built server-side from the
+ * trusted session UUID — the route takes no request input, so no query/body
+ * value can override it. Unauthenticated callers get 401.
  */
 export async function GET() {
   const user = await getSessionUser();
   if (!user) {
     return NextResponse.json({ error: "unauthenticated" }, { status: 401 });
   }
-  if (!isTimewallTestUser(user.id) || !isTimewallWallAvailable()) {
+  if (!isTimewallWallAvailable()) {
     return NextResponse.json({ error: "wall_unavailable" }, { status: 503 });
   }
   try {

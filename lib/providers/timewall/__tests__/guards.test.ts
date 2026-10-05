@@ -31,19 +31,21 @@ describe("TimeWall wall implementation cannot leak server secrets", () => {
     expect(code).not.toMatch(/TIMEWALL_POSTBACK_SECRET/i);
   });
 
-  it("Earn UI exposes TimeWall ONLY behind the server-side test gate", () => {
+  it("Earn UI exposes TimeWall as a normal live provider", () => {
     const tabs = codeWithoutComments(resolve(root, "components/earn-provider-tabs.tsx"));
     const lower = tabs.toLowerCase();
-    // The TimeWall tab is data, added to the tab list ONLY when the
-    // server-computed `timewallTestAccess` prop is true — never unconditionally.
-    expect(tabs).toMatch(/timewallTestAccess\s*\?\s*\[\.\.\.BASE_TABS/);
-    // The test account UUID itself must never reach the client bundle or UI:
-    // gating compares the session server-side; the client only sees a boolean.
+    // TimeWall is live for all authenticated users: the tab is unconditional.
+    expect(lower).toMatch(/"timewall"/);
+    // No test-gating remains: no test-user prop, no test UUID, no hidden tab.
+    expect(tabs).not.toMatch(/timewallTestAccess/i);
+    expect(tabs).not.toMatch(/TIMEWALL_TEST_USER_ID/i);
     expect(tabs).not.toMatch(/b02fda61-37ef-4d61-900b-5b2a747e29ec/i);
-    // The honest unavailable fallback must still exist for normal users.
-    expect(lower).toMatch(/partner-row-muted/);
-    expect(lower).toMatch(/currently unavailable/);
-    expect(lower).toMatch(/coming soon/);
+    // No test-only or unavailable copy may remain in the Earn UI.
+    expect(lower).not.toMatch(/test access/);
+    expect(lower).not.toMatch(/currently unavailable/);
+    expect(lower).not.toMatch(/coming soon/);
+    // The wall opens in a new tab: no TimeWall iframe may be mounted.
+    expect(lower).not.toMatch(/timewall.*iframe|iframe.*timewall/);
   });
 });
 

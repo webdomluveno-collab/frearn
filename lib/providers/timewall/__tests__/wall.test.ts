@@ -1,5 +1,7 @@
-import { describe, expect, it } from "vitest";
-import { buildTimewallWallUrl, isTimewallTestUser, isTimewallWallAvailable } from "../wall";
+import { describe, expect, it, vi } from "vitest";
+import { buildTimewallWallUrl, isTimewallWallAvailable } from "../wall";
+
+vi.mock("@/lib/auth/server", () => ({ getSessionUser: vi.fn() }));
 
 const UID = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee";
 
@@ -15,7 +17,7 @@ function withWallUrl(value: string | undefined, fn: () => void) {
   }
 }
 
-describe("TimeWall wall availability (placement approved, test-gated)", () => {
+describe("TimeWall wall availability (live for authenticated users)", () => {
   it("reports unavailable while no official Placement URL exists", () => {
     withWallUrl(undefined, () => {
       expect(isTimewallWallAvailable()).toBe(false);
@@ -65,60 +67,57 @@ describe("TimeWall wall availability (placement approved, test-gated)", () => {
   });
 });
 
-const TEST_USER = "b02fda61-37ef-4d61-900b-5b2a747e29ec";
-
-describe("isTimewallTestUser (controlled live-test gate)", () => {
-  function withTestUser(value: string | undefined, fn: () => void) {
-    const prev = process.env.TIMEWALL_TEST_USER_ID;
-    if (value === undefined) delete process.env.TIMEWALL_TEST_USER_ID;
-    else process.env.TIMEWALL_TEST_USER_ID = value;
-    try {
-      fn();
-    } finally {
-      if (prev === undefined) delete process.env.TIMEWALL_TEST_USER_ID;
-      else process.env.TIMEWALL_TEST_USER_ID = prev;
-    }
-  }
-
-  it("exact session UUID match only — no query/body/client override possible", () => {
-    withTestUser(TEST_USER, () => {
-      expect(isTimewallTestUser(TEST_USER)).toBe(true);
-      expect(isTimewallTestUser("aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee")).toBe(false);
-      expect(isTimewallTestUser("")).toBe(false);
-      expect(isTimewallTestUser(null)).toBe(false);
-      expect(isTimewallTestUser(undefined)).toBe(false);
-      // Near-miss values never match: no prefix, suffix, case, or whitespace leniency.
-      expect(isTimewallTestUser(TEST_USER.toUpperCase())).toBe(false);
-      expect(isTimewallTestUser(` ${TEST_USER} `)).toBe(false);
-    });
-  });
-
-  it("fail closed when the test user is unconfigured", () => {
-    withTestUser(undefined, () => {
-      expect(isTimewallTestUser(TEST_USER)).toBe(false);
-    });
-    withTestUser("", () => {
-      expect(isTimewallTestUser(TEST_USER)).toBe(false);
-    });
-    withTestUser("   ", () => {
-      expect(isTimewallTestUser(TEST_USER)).toBe(false);
-    });
-  });
-});
-
 describe("GET /api/providers/timewall/wall", () => {
   it("unauthenticated callers get 401 and no URL", async () => {
-    const prevUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-    const prevAnon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-    delete process.env.NEXT_PUBLIC_SUPABASE_URL;
-    delete process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+    const { getSessionUser } = await import("@/lib/auth/server");
+    vi.mocked(getSessionUser).mockResolvedValue(null);
+    try {
+      const { GET } = await import("@/app/api/providers/timewall/wall/route");
+      const res = await GET();
+      expect(res.status).toBe(401);
+      expect(((await res.json()) as { url?: string }).url).toBeUndefined();
+    } finally {
+      vi.mocked(getSessionUser).mockReset();
+    }
+  });
+
+  it("authenticated users obtain a URL built from their own session UUID", async () => {
+    const { getSessionUser } = await import("@/lib/auth/server");
+    vi.mocked(getSessionUser).mockResolvedValue({ id: UID, email: "user@example.com" });
+    const prev = process.env.TIMEWALL_WALL_URL;
+    process.env.TIMEWALL_WALL_URL = "https://timewall.io/users/login?oid=6154a2b1f8661a69";
+    try {
+      const { GET } = await import("@/app/api/providers/timewall/wall/route");
+      // The route takes no request input: there is no query/body channel that
+      // could replace the session UUID.
+      const res = await GET();
+      expect(res.status).toBe(200);
+      expect(res.headers.get("Cache-Control")).toContain("no-store");
+      const data = (await res.json()) as { url: string };
+      const url = new URL(data.url);
+      expect(url.searchParams.get("oid")).toBe("6154a2b1f8661a69");
+      expect(url.searchParams.get("uid")).toBe(UID);
+      expect(url.searchParams.has("userid")).toBe(false);
+    } finally {
+      if (prev === undefined) delete process.env.TIMEWALL_WALL_URL;
+      else process.env.TIMEWALL_WALL_URL = prev;
+      vi.mocked(getSessionUser).mockReset();
+    }
+  });
+
+  it("configured wall without session still denies (auth checked first)", async () => {
+    const { getSessionUser } = await import("@/lib/auth/server");
+    vi.mocked(getSessionUser).mockResolvedValue(null);
+    const prev = process.env.TIMEWALL_WALL_URL;
+    process.env.TIMEWALL_WALL_URL = "https://timewall.io/users/login?oid=6154a2b1f8661a69";
     try {
       const { GET } = await import("@/app/api/providers/timewall/wall/route");
       const res = await GET();
       expect(res.status).toBe(401);
     } finally {
-      if (prevUrl !== undefined) process.env.NEXT_PUBLIC_SUPABASE_URL = prevUrl;
-      if (prevAnon !== undefined) process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY = prevAnon;
+      if (prev === undefined) delete process.env.TIMEWALL_WALL_URL;
+      else process.env.TIMEWALL_WALL_URL = prev;
+      vi.mocked(getSessionUser).mockReset();
     }
   });
 });
