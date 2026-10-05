@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildTimewallWallUrl, isTimewallWallAvailable } from "../wall";
+import { buildTimewallWallUrl, isTimewallTestUser, isTimewallWallAvailable } from "../wall";
 
 const UID = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee";
 
@@ -15,11 +15,11 @@ function withWallUrl(value: string | undefined, fn: () => void) {
   }
 }
 
-describe("TimeWall wall availability (placement pending approval)", () => {
+describe("TimeWall wall availability (placement approved, test-gated)", () => {
   it("reports unavailable while no official Placement URL exists", () => {
     withWallUrl(undefined, () => {
       expect(isTimewallWallAvailable()).toBe(false);
-      expect(() => buildTimewallWallUrl({ userId: UID })).toThrow(/pending approval/);
+      expect(() => buildTimewallWallUrl({ userId: UID })).toThrow(/not configured/);
     });
     withWallUrl("", () => {
       expect(isTimewallWallAvailable()).toBe(false);
@@ -61,6 +61,47 @@ describe("TimeWall wall availability (placement pending approval)", () => {
   it("requires a userId (never mints an anonymous wall)", () => {
     withWallUrl("https://wall.example.com/placement/abc", () => {
       expect(() => buildTimewallWallUrl({ userId: "" })).toThrow();
+    });
+  });
+});
+
+const TEST_USER = "b02fda61-37ef-4d61-900b-5b2a747e29ec";
+
+describe("isTimewallTestUser (controlled live-test gate)", () => {
+  function withTestUser(value: string | undefined, fn: () => void) {
+    const prev = process.env.TIMEWALL_TEST_USER_ID;
+    if (value === undefined) delete process.env.TIMEWALL_TEST_USER_ID;
+    else process.env.TIMEWALL_TEST_USER_ID = value;
+    try {
+      fn();
+    } finally {
+      if (prev === undefined) delete process.env.TIMEWALL_TEST_USER_ID;
+      else process.env.TIMEWALL_TEST_USER_ID = prev;
+    }
+  }
+
+  it("exact session UUID match only — no query/body/client override possible", () => {
+    withTestUser(TEST_USER, () => {
+      expect(isTimewallTestUser(TEST_USER)).toBe(true);
+      expect(isTimewallTestUser("aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee")).toBe(false);
+      expect(isTimewallTestUser("")).toBe(false);
+      expect(isTimewallTestUser(null)).toBe(false);
+      expect(isTimewallTestUser(undefined)).toBe(false);
+      // Near-miss values never match: no prefix, suffix, case, or whitespace leniency.
+      expect(isTimewallTestUser(TEST_USER.toUpperCase())).toBe(false);
+      expect(isTimewallTestUser(` ${TEST_USER} `)).toBe(false);
+    });
+  });
+
+  it("fail closed when the test user is unconfigured", () => {
+    withTestUser(undefined, () => {
+      expect(isTimewallTestUser(TEST_USER)).toBe(false);
+    });
+    withTestUser("", () => {
+      expect(isTimewallTestUser(TEST_USER)).toBe(false);
+    });
+    withTestUser("   ", () => {
+      expect(isTimewallTestUser(TEST_USER)).toBe(false);
     });
   });
 });

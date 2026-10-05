@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import {
   processTimewallPostback,
   type TimewallEventInsert,
@@ -258,5 +258,103 @@ describe("processTimewallPostback — credit path (injected allowlist, tests onl
       expect(res).toEqual({ outcome: "rejected", error: "invalid_amount" });
     }
     expect(store.rewards()).toHaveLength(0);
+  });
+});
+
+describe("controlled live test: env-driven credit allowlist", () => {
+  const ENV_KEY = "TIMEWALL_CREDITABLE_TYPES";
+  let prev: string | undefined;
+
+  beforeEach(() => {
+    prev = process.env[ENV_KEY];
+  });
+  afterEach(() => {
+    if (prev === undefined) delete process.env[ENV_KEY];
+    else process.env[ENV_KEY] = prev;
+  });
+
+  it("unset allowlist env fails closed: verified credit-shaped events are held", async () => {
+    delete process.env[ENV_KEY];
+    const store = new MemoryTimewallStore();
+    const res = await processTimewallPostback(store, normalized({ type: "credit", txid: "tw-env-unset" }));
+    expect(res).toEqual({ outcome: "held", detail: "unconfirmed_event_type" });
+    expect(store.rewards()).toHaveLength(0);
+  });
+
+  it('TIMEWALL_CREDITABLE_TYPES=credit credits normalized "credit" to the ledger path', async () => {
+    process.env[ENV_KEY] = "credit";
+    const store = new MemoryTimewallStore();
+    const res = await processTimewallPostback(store, normalized({ type: "credit", txid: "tw-env-credit" }));
+    expect(res.outcome).toBe("credited");
+    expect(store.rewards()).toHaveLength(1);
+    const [row] = store.rewards();
+    // Verbatim money mapping: no multiplier, publisher revenue separated.
+    expect(row.amountCents).toBe(70);
+    expect(row.publisherRevenueCents).toBe(100);
+    expect(row.type).toBe("offer_reward");
+    expect(row.status).toBe("confirmed");
+    expect(row.idempotencyKey).toBe("timewall:tw-env-credit:reward");
+    expect(row.providerTransactionId).toBe("tw-env-credit");
+    // Observability: normalized type drives decisions, raw type is auditable.
+    expect(row.metadata.type).toBe("credit");
+    expect(row.metadata.type_raw).toBe("credit");
+  });
+
+  it('"Credit" and " credit " raw values credit via the env allowlist', async () => {
+    process.env[ENV_KEY] = "credit";
+    for (const [txid, raw] of [["tw-cap", "Credit"], ["tw-pad", " credit "]] as Array<[string, string]>) {
+      const store = new MemoryTimewallStore();
+      const res = await processTimewallPostback(store, normalized({ type: raw, txid }));
+      expect(res.outcome).toBe("credited");
+      const [row] = store.rewards();
+      expect(row.amountCents).toBe(70);
+      expect(row.metadata.type).toBe("credit");
+      expect(row.metadata.type_raw).toBe(raw);
+    }
+  });
+
+  it("env values are normalized too: ' Credit ,, ' resolves to credit-only", async () => {
+    process.env[ENV_KEY] = " Credit ,, ";
+    const store = new MemoryTimewallStore();
+    const res = await processTimewallPostback(store, normalized({ type: "credit", txid: "tw-env-norm" }));
+    expect(res.outcome).toBe("credited");
+    const other = new MemoryTimewallStore();
+    const held = await processTimewallPostback(other, normalized({ type: "chargeback", txid: "tw-env-norm2" }));
+    expect(held.outcome).toBe("held");
+    expect(other.rewards()).toHaveLength(0);
+  });
+
+  it("chargeback does not credit and creates no reversal handling", async () => {
+    process.env[ENV_KEY] = "credit";
+    const store = new MemoryTimewallStore();
+    const res = await processTimewallPostback(store, normalized({ type: "chargeback", txid: "tw-cb" }));
+    expect(res.outcome).toBe("held");
+    expect(store.rewards()).toHaveLength(0);
+    expect(store.ledger).toHaveLength(0);
+  });
+
+  it("non-payable, unknown, and empty types do not credit", async () => {
+    process.env[ENV_KEY] = "credit";
+    for (const [txid, type] of [
+      ["tw-np", "non-payable"],
+      ["tw-unk", "mystery_type_xyz"],
+      ["tw-empty", ""],
+      ["tw-ws", "   "],
+    ] as Array<[string, string]>) {
+      const store = new MemoryTimewallStore();
+      const res = await processTimewallPostback(store, normalized({ type, txid }));
+      expect(res.outcome).toBe("held");
+      expect(store.rewards()).toHaveLength(0);
+    }
+  });
+
+  it("duplicate credit callbacks cannot double-credit", async () => {
+    process.env[ENV_KEY] = "credit";
+    const store = new MemoryTimewallStore();
+    const first = await processTimewallPostback(store, normalized({ type: "credit", txid: "tw-dup" }));
+    expect(first.outcome).toBe("credited");
+    const second = await processTimewallPostback(store, normalized({ type: "credit", txid: "tw-dup" }));
+    expect(second.outcome).toBe("duplicate");
+    expect(store.rewards()).toHaveLength(1);
   });
 });

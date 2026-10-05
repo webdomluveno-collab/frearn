@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   normalizePostback,
+  normalizeTimewallType,
   parseCurrencyToCents,
   parseRevenueToCents,
   validatePostbackShape,
@@ -108,5 +109,35 @@ describe("normalizePostback", () => {
     const n = normalizePostback(params({ offername: "x".repeat(500), reason: "y".repeat(500) }));
     expect(n.offername!.length).toBe(128);
     expect(n.reason!.length).toBe(256);
+  });
+});
+
+describe("normalizeTimewallType (trim + lowercase, comparison only)", () => {
+  it('"Credit" normalizes to "credit"', () => {
+    expect(normalizeTimewallType("Credit")).toBe("credit");
+  });
+
+  it('" credit " normalizes to "credit"', () => {
+    expect(normalizeTimewallType(" credit ")).toBe("credit");
+  });
+
+  it("leaves already-normal and other values structurally intact", () => {
+    expect(normalizeTimewallType("credit")).toBe("credit");
+    expect(normalizeTimewallType("chargeback")).toBe("chargeback");
+    expect(normalizeTimewallType("non-payable")).toBe("non-payable");
+  });
+
+  it("never maps unknown, empty, or non-string types to anything", () => {
+    expect(normalizeTimewallType("")).toBe("");
+    expect(normalizeTimewallType("   ")).toBe("");
+    expect(normalizeTimewallType(null)).toBe("");
+    expect(normalizeTimewallType(undefined)).toBe("");
+    expect(normalizeTimewallType(42)).toBe("");
+  });
+
+  it("normalizePostback keeps the raw type for audit alongside the normalized one", () => {
+    const n = normalizePostback(params({ type: "Credit" }));
+    expect(n.type).toBe("credit");
+    expect(n.typeRaw).toBe("Credit");
   });
 });

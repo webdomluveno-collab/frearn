@@ -1,14 +1,16 @@
 /**
- * TimeWall offerwall URL mechanism (placement PENDING APPROVAL).
+ * TimeWall offerwall URL mechanism.
  *
  * Pure functions with NO secrets: the placement URL itself is public once
  * issued. There is deliberately no `import "server-only"` here so availability
  * checks are unit-testable anywhere — a guard test pins that no secret
  * reference may ever appear in this file.
  *
- * Until TimeWall issues the official Placement URL, `TIMEWALL_WALL_URL` stays
- * empty and every helper reports unavailable; the Earn UI hides the TimeWall
- * tab entirely (see registry + tabs), so no broken tab can reach production.
+ * Controlled live test: the placement is approved, but TimeWall stays hidden
+ * from normal users. Wall access additionally requires an exact match with
+ * the server-only `TIMEWALL_TEST_USER_ID` (see isTimewallTestUser). The Earn
+ * UI and the wall route both enforce this server-side; when unset, nobody
+ * has access. Remove the gate only for public rollout.
  */
 
 export function timewallWallUrl(): string | null {
@@ -29,6 +31,20 @@ export function isTimewallWallAvailable(): boolean {
   return timewallWallUrl() !== null;
 }
 
+/**
+ * Controlled live-test gate: true only for the exact authenticated test
+ * user. Server-side only in effect — callers (Earn page, wall route) run on
+ * the server and compare the session UUID; the UUID itself is never rendered
+ * or sent to the browser. Unset/empty env ⇒ nobody has access (fail closed).
+ * No query-string, body, or client value can satisfy this: only the trusted
+ * session UUID is ever compared.
+ */
+export function isTimewallTestUser(userId: string | null | undefined): boolean {
+  const allowed = process.env.TIMEWALL_TEST_USER_ID?.trim();
+  if (!allowed) return false;
+  return userId === allowed;
+}
+
 export interface BuildTimewallWallInput {
   /** Stable Supabase auth UUID from the trusted server session. */
   userId: string;
@@ -46,7 +62,7 @@ export interface BuildTimewallWallInput {
 export function buildTimewallWallUrl(input: BuildTimewallWallInput): string {
   const base = timewallWallUrl();
   if (!base) {
-    throw new Error("TimeWall wall URL is not configured (placement pending approval).");
+    throw new Error("TimeWall wall URL is not configured.");
   }
   if (!input.userId) throw new Error("userId is required to build the TimeWall wall URL.");
   const url = new URL(base);

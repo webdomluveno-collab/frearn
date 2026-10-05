@@ -38,6 +38,17 @@ export function isReasonableId(value: unknown): value is string {
   );
 }
 
+/**
+ * Normalize a callback `type` for allowlist comparison: trim whitespace and
+ * lowercase ("Credit" -> "credit", " CREDIT " -> "credit"). Normalization
+ * applies ONLY to the type comparison — no money field is ever reinterpreted,
+ * and unknown types are never mapped to anything creditable. The raw value is
+ * preserved separately (see NormalizedTimewallPostback.typeRaw).
+ */
+export function normalizeTimewallType(value: unknown): string {
+  return typeof value === "string" ? value.trim().toLowerCase() : "";
+}
+
 /** userid must be a Supabase auth UUID. Never emails, never created from postbacks. */
 export function isUuid(value: unknown): value is string {
   return (
@@ -107,8 +118,13 @@ export interface NormalizedTimewallPostback {
   revenueCents: number;
   /** User reward in integer cents, taken VERBATIM from `currency` (no multiplier). */
   userRewardCents: number;
-  /** Raw event type string. Only allowlisted values may credit (see process.ts). */
+  /**
+   * Normalized event type (trimmed + lowercased) for allowlist comparison.
+   * Only explicitly allowlisted normalized values may credit.
+   */
   type: string;
+  /** EXACT raw `type` string as received, for audit. Never used for credit decisions. */
+  typeRaw: string;
   withdrawid: string | null;
   reason: string | null;
   offername: string | null;
@@ -145,7 +161,8 @@ export function normalizePostback(p: TimewallPostbackParams): NormalizedTimewall
     revenueRaw: p.revenueRaw,
     revenueCents: parseRevenueToCents(p.revenueRaw) as number,
     userRewardCents: parseCurrencyToCents(p.currencyRaw) as number,
-    type: p.type,
+    type: normalizeTimewallType(p.type),
+    typeRaw: p.type,
     withdrawid: opt(p.withdrawid, 128),
     reason: opt(p.reason, 256),
     offername: opt(p.offername, 128),

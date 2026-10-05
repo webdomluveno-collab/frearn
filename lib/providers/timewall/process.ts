@@ -13,12 +13,33 @@ export const TIMEWALL_PROVIDER_KEY = "timewall";
  * Shockingly important: NO `type` value is currently proven. TimeWall's public
  * site is Cloudflare-blocked, no public postback documentation is reachable,
  * and `type`/`withdrawid`/`reason` semantics (earn vs reversal/chargeback)
- * cannot be inferred. The set therefore ships EMPTY: every verified event is
- * stored durably as held, and NOTHING credits. To enable crediting after
- * TimeWall confirms the earn `type` value (dashboard docs or a live test
- * postback), add the exact string here — one line, plus a test.
+ * cannot be inferred. The default therefore ships EMPTY: every verified event
+ * is stored durably as held, and NOTHING credits.
+ *
+ * Controlled live test: the allowlist is read from the server-only
+ * `TIMEWALL_CREDITABLE_TYPES` env var (comma-separated, normalized the same
+ * way as callback types — trimmed + lowercased, e.g. `credit`). When the env
+ * var is unset, the empty default above applies (fail closed). Callback
+ * `type` values are normalized before comparison, so "Credit" and " credit "
+ * both resolve to "credit" — but ONLY values present in the resolved set may
+ * credit. Unknown, empty, or absent values can never match.
+ *
+ * To enable crediting after TimeWall confirms the earn `type` value, set the
+ * env var — no code change, plus a test.
  */
 export const TIMEWALL_CREDITABLE_TYPES: ReadonlySet<string> = new Set<string>([]);
+
+/** Resolve the effective allowlist: env override or the fail-closed default. */
+function resolveCreditableTypes(): ReadonlySet<string> {
+  const raw = process.env.TIMEWALL_CREDITABLE_TYPES;
+  if (raw === undefined) return TIMEWALL_CREDITABLE_TYPES;
+  return new Set(
+    raw
+      .split(",")
+      .map((s) => s.trim().toLowerCase())
+      .filter((s) => s.length > 0)
+  );
+}
 
 export interface TimewallProfile {
   id: string;
@@ -97,6 +118,7 @@ function eventPayload(n: NormalizedTimewallPostback): Record<string, unknown> {
     revenue_cents: n.revenueCents,
     currency_cents: n.userRewardCents,
     type: n.type,
+    type_raw: n.typeRaw,
     withdrawid: n.withdrawid,
     reason: n.reason,
     offername: n.offername,
@@ -135,7 +157,7 @@ export async function processTimewallPostback(
   n: NormalizedTimewallPostback,
   opts: ProcessTimewallOptions = {}
 ): Promise<TimewallOutcome> {
-  const creditable = opts.creditableTypes ?? TIMEWALL_CREDITABLE_TYPES;
+  const creditable = opts.creditableTypes ?? resolveCreditableTypes();
 
   const profile = await store.findProfile(n.userid);
   if (!profile) {

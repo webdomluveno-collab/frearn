@@ -15,6 +15,7 @@ describe("TimeWall wall implementation cannot leak server secrets", () => {
   const files = [
     "lib/providers/timewall/wall.ts",
     "app/api/providers/timewall/wall/route.ts",
+    "components/timewall-wall.tsx",
   ];
   it("no secret names, hashes, or service-role references in wall code", () => {
     for (const f of files) {
@@ -30,20 +31,19 @@ describe("TimeWall wall implementation cannot leak server secrets", () => {
     expect(code).not.toMatch(/TIMEWALL_POSTBACK_SECRET/i);
   });
 
-  it("Earn UI offers no working TimeWall entry while the wall is unavailable", () => {
+  it("Earn UI exposes TimeWall ONLY behind the server-side test gate", () => {
     const tabs = codeWithoutComments(resolve(root, "components/earn-provider-tabs.tsx"));
     const lower = tabs.toLowerCase();
-    // No tab, panel, iframe, or wall component for TimeWall may exist.
-    expect(lower).not.toMatch(/role="tab"[^>]*timewall|timewall[^>]*role="tab"/);
-    expect(lower).not.toMatch(/timewallofferwall|timewall.*iframe|iframe.*timewall/);
-    expect(lower).not.toMatch(/timewall.*wall\.route|buildtimewallwallurl/);
-    // Any remaining mention must be an honest pending-approval status row,
-    // never a working-looking earning source.
-    for (const line of lower.split("\n")) {
-      if (line.includes("timewall")) {
-        expect(line).toMatch(/pending approval|coming later|unavailable/);
-      }
-    }
+    // The TimeWall tab is data, added to the tab list ONLY when the
+    // server-computed `timewallTestAccess` prop is true — never unconditionally.
+    expect(tabs).toMatch(/timewallTestAccess\s*\?\s*\[\.\.\.BASE_TABS/);
+    // The test account UUID itself must never reach the client bundle or UI:
+    // gating compares the session server-side; the client only sees a boolean.
+    expect(tabs).not.toMatch(/b02fda61-37ef-4d61-900b-5b2a747e29ec/i);
+    // The honest unavailable fallback must still exist for normal users.
+    expect(lower).toMatch(/partner-row-muted/);
+    expect(lower).toMatch(/currently unavailable/);
+    expect(lower).toMatch(/coming soon/);
   });
 });
 
