@@ -1,212 +1,248 @@
-import type { Metadata } from "next";
-import Link from "next/link";
-import { baseMetadata } from "@/lib/seo";
-import { siteConfig } from "@/config/site";
-import { centsToUsd } from "@/lib/money";
-import { Icon } from "@/components/fx/icon";
-import { TallyMark } from "@/components/fx/tally";
-import {
-  isActiveWithdrawalMethod,
-  WITHDRAWAL_METHOD_META,
-} from "@/lib/withdrawals";
-import { HomepageMotion, PayoutSlider, PlannedLevels } from "@/components/homepage/experience";
-import styles from "./homepage.module.css";
+import type { Metadata } from 'next';
+import Link from 'next/link';
+import { Icon, type IconName } from '@/components/fx/icon';
+import { TallyMark } from '@/components/fx/tally';
+import { MomentArt } from '@/components/fx/moment-art';
+import { HomepageMotion, PayoutSlider, PlannedLevels } from '@/components/homepage/experience';
+import { MINIMUM_WITHDRAWAL_CENTS } from '@/lib/withdrawals';
+import { centsToUsd as money } from '@/lib/money';
+import styles from './homepage.module.css';
 
-export const metadata: Metadata = baseMetadata({
-  title: "Freearn — Turn spare moments into rewards",
-  description:
-    "Surveys, games and tasks in one place. Explore planned reward levels and request withdrawals from $3 with manual review.",
-});
-
-const minWithdraw = centsToUsd(siteConfig.minimumWithdrawalCents);
-
-const steps = [
-  {
-    title: "Make yourself at home.",
-    subtitle: "Join Freearn",
-    detail: "One account. One place to find activities that fit your time.",
-    icon: "home" as const,
-  },
-  {
-    title: "Find your kind of activity.",
-    subtitle: "Surveys, games & tasks",
-    detail:
-      "Check the reward, requirements and device before you begin. Providers confirm completion.",
-    icon: "game" as const,
-  },
-  {
-    title: "Keep something back.",
-    subtitle: "Build your balance",
-    detail: `Confirmed rewards build your available balance. Request a withdrawal from ${minWithdraw}.`,
-    icon: "wallet" as const,
-  },
-];
-
-const METHOD_SYMBOLS: Record<string, string> = {
-  paypal: "P",
-  skrill: "S",
-  revolut: "@",
-  sol: "◎",
-  usdc_solana: "$",
+export const metadata: Metadata = {
+  title: 'Freearn — Little moments. Real possibilities.',
+  description: `Discover surveys and offers, a ${money(MINIMUM_WITHDRAWAL_CENTS)} withdrawal minimum, and fast manual payouts with Revolut and Skrill.`,
 };
-
-const methods: Array<{ name: string; state: "active" | "soon"; note: string; symbol: string }> = [
-  ...siteConfig.liveWithdrawalMethods.filter(isActiveWithdrawalMethod).map((id) => ({
-    name: WITHDRAWAL_METHOD_META[id].label,
-    state: "active" as const,
-    note:
-      id === "paypal"
-        ? "To your PayPal email"
-        : id === "skrill"
-          ? "To your Skrill email"
-          : id === "revolut"
-            ? "To your Revolut @username"
-            : "Solana network",
-    symbol: METHOD_SYMBOLS[id] ?? "•",
-  })),
-  { name: "Card", state: "soon", note: "No card provider integrated yet", symbol: "▭" },
+const minimum = money(MINIMUM_WITHDRAWAL_CENTS);
+const steps: { title: string; detail: string; icon: IconName; label: string }[] = [
+  {
+    title: 'Make yourself at home.',
+    label: 'JOIN FREEARN',
+    detail: 'Create an account and find activities that fit your time.',
+    icon: 'home',
+  },
+  {
+    title: 'Find your little win.',
+    label: 'SURVEYS & OFFERS',
+    detail:
+      'Check the reward and requirements. Providers verify completion before a reward is confirmed.',
+    icon: 'survey',
+  },
+  {
+    title: 'Start small. Cash out.',
+    label: `FROM ${minimum}`,
+    detail:
+      'Use your confirmed, available balance to request a withdrawal. Pending rewards stay separate.',
+    icon: 'wallet',
+  },
+  {
+    title: 'A human checks. You get paid.',
+    label: 'REVIEW, THEN PAYOUT',
+    detail: 'Requests are manually reviewed. Revolut and Skrill are the fastest payout options.',
+    icon: 'check',
+  },
 ];
-
-const faqs: Array<[string, string]> = [
+const faqs = [
   [
-    "What is Freearn?",
-    "Freearn is one place to find surveys, games and tasks, see their requirements, and track rewards for confirmed completion in a single wallet.",
+    'What is the minimum withdrawal?',
+    `Cash out from just ${minimum} — ten cents in USD. Only confirmed, available rewards can be withdrawn. One active withdrawal request per account is allowed at a time.`,
   ],
   [
-    "How do rewards work?",
-    "Each activity states its requirements and an estimated reward. A provider must confirm completion before a reward becomes available. Pending rewards are separate from your available balance.",
+    'How fast are payouts processed?',
+    'Revolut and Skrill are our fastest payout options. Most requests are reviewed within approximately 1 hour; exceptional cases may take up to 3 days. These are estimates, not guaranteed payout times.',
   ],
   [
-    "Why do reward amounts vary?",
-    "Providers set different rewards and conditions. Time, milestones, eligibility, device and location can all affect the activities you see. There is no guaranteed amount of earnings.",
+    'Which payout methods can I choose?',
+    'Revolut / Revtag, Skrill, PayPal, SOL on Solana and USDC on Solana are supported. Revolut and Skrill are our fastest payout options. Card payouts are coming soon. Check your wallet for availability.',
   ],
   [
-    "What is the 50–85% system?",
-    "It is a planned loyalty system, currently in development. The idea is to start around a 50% share and potentially keep up to 85% of a provider reward as you build legitimate activity and history. Shares, eligibility and level requirements are not final. These levels cannot be unlocked today.",
+    'Do I need to pay anything?',
+    'Creating an account is free. Read each offer’s conditions before starting: some offers may require a purchase or subscription. You choose which activities to take, and can stick to activities without a purchase requirement.',
   ],
   [
-    "How do withdrawals work?",
-    `Request a withdrawal from ${minWithdraw}. PayPal, Skrill, Revolut, SOL and USDC on Solana are active; card payouts are coming soon. Every request is manually reviewed at launch — most are reviewed within 1 hour, with up to 3 days in exceptional cases. Requested funds are reserved from your available balance immediately and returned if a request is rejected.`,
+    'Can I use my phone?',
+    'Yes, the experience is designed for phones and desktops. Some activities require a particular device, location or connection. Check the requirements before starting, whether you are at home, on a train or travelling.',
   ],
   [
-    "How fast are withdrawals processed?",
-    "The target is to review most withdrawals within 1 hour, with up to 3 days in exceptional cases. These are processing targets, not guarantees. Automation may be added later.",
+    'Why do rewards vary?',
+    'Providers set the rewards and conditions. Eligibility, location, device, survey length and offer milestones can all affect what you see. Completion must be confirmed; there is no guaranteed amount of earnings.',
   ],
   [
-    "Can I use Freearn anywhere?",
-    "The web experience is designed for phones and laptops. You can browse when you have free time, but opportunities vary by provider, location, eligibility and device. Some activities need a specific device or connection.",
-  ],
-  [
-    "Why might a survey disappear or disqualify me?",
-    "A survey can fill its quota, close, or find that your answers do not match its audience. Providers decide qualification and completion. Review the conditions first; a reward is not guaranteed for every survey you start.",
+    'Are the 50–85% reward levels active?',
+    'No. These are planned loyalty concepts. Shares, requirements and eligibility are still being designed. The calculator is an illustration, and no level changes your actual rewards or balance today.',
   ],
 ];
-
+function HomeBrand() {
+  return (
+    <Link href="/" className={styles.brand} aria-label="Freearn home">
+      <TallyMark size={31} />
+      <span>
+        freearn<span className={styles.brandDot}>.</span>
+      </span>
+    </Link>
+  );
+}
+function JoinLink({
+  children = 'Get started — it’s free',
+  light = false,
+}: {
+  children?: React.ReactNode;
+  light?: boolean;
+}) {
+  return (
+    <Link href="/register" className={`${styles.cta} ${light ? styles.ctaLight : ''}`}>
+      {children}
+      <span aria-hidden="true">↗</span>
+    </Link>
+  );
+}
 export default function HomePage() {
   return (
     <HomepageMotion>
       <a className={styles.skip} href="#home-main">
         Skip to content
       </a>
+      <header className={`${styles.header} ${styles.container}`}>
+        <HomeBrand />
+        <nav aria-label="Public navigation">
+          <a href="#how-it-works">How it works</a>
+          <a href="#withdrawals">Payouts</a>
+          <a href="#questions">Questions</a>
+        </nav>
+        <div className={styles.headerActions}>
+          <Link href="/login">Log in</Link>
+          <JoinLink>Get started</JoinLink>
+        </div>
+      </header>
       <main id="home-main">
-        <section className={`${styles.hero} ${styles.container}`} aria-labelledby="hero-title">
-          <div className={styles.heroCopy}>
-            <span className={styles.eyebrow}>
-              <i /> A LITTLE TIME. A LITTLE POSSIBILITY.
-            </span>
-            <h1 id="hero-title">
-              Your spare time.
-              <br />
-              <span>Something back.</span>
-            </h1>
-            <p>Surveys, games and tasks. One place to turn the moments in between into rewards.</p>
-            <div className={styles.heroActions}>
-              <Link href="/register" className={styles.cta}>
-                Start with Freearn <span aria-hidden="true">↗</span>
-              </Link>
-              <a href="#payout-preview" className={styles.inlineLink}>
-                See how your share could grow <span aria-hidden="true">↓</span>
-              </a>
-            </div>
-            <div className={styles.heroTrust}>
-              <Icon name="check" size={18} />
-              <span>You choose the activity. You set the pace.</span>
-            </div>
-            <p className={styles.heroFuture}>
-              Planned reward levels: <strong>50% → 85%</strong>.<br />
-              Withdraw from {minWithdraw} with manual review.
-            </p>
-          </div>
-          <div
-            className={styles.heroVisual}
-            role="img"
-            aria-label="Planned loyalty illustration: from 50 percent to up to 85 percent. Not active yet."
-          >
-            <div className={styles.visualTop}>
-              <span>THE SMALL MOMENTS ADD UP</span>
-              <span aria-hidden="true">↗</span>
-            </div>
-            <div className={styles.visualOrbit} aria-hidden="true">
-              <i />
-              <i />
-              <i />
-            </div>
-            <div className={styles.heroActivity}>
-              <Icon name="survey" size={22} />
-              <span>A few questions.</span>
-              <span aria-hidden="true">↗</span>
-            </div>
-            <div className={styles.heroTarget}>
-              <span>UP TO</span>
-              <strong>
-                85<span>%</span>
-              </strong>
-              <span>PLANNED REWARD SHARE</span>
-            </div>
-            <div className={styles.heroPath} aria-hidden="true">
-              <span>50%</span>
-              <i />
-              <i />
-              <i />
-              <i />
-              <i />
-              <span>85%</span>
-            </div>
-            <div className={styles.visualFoot}>
-              <span className={styles.plannedTag}>LOYALTY IN DEVELOPMENT</span>
-              <span>
-                A bigger share.
-                <br />A longer history.
+        <section className={styles.hero} aria-labelledby="hero-title">
+          <div className={`${styles.heroInner} ${styles.container}`}>
+            <div className={styles.heroCopy}>
+              <span className={styles.eyebrow}>
+                <i /> LITTLE MOMENTS. REAL POSSIBILITIES.
               </span>
+              <h1 id="hero-title">
+                A little time.
+                <br />A little <span>more.</span>
+                <svg viewBox="0 0 300 30" aria-hidden="true">
+                  <path d="M4 19Q135 1 295 15M10 27Q135 14 260 23" />
+                </svg>
+              </h1>
+              <p>
+                Turn your in-between moments into rewards.
+                <br />
+                Discover surveys and offers. Choose what fits your day.
+              </p>
+              <div className={styles.heroBenefits}>
+                <span>
+                  <Icon name="wallet" size={19} />
+                  <strong>Cash out from just {minimum}</strong>
+                </span>
+                <span>
+                  <Icon name="clock" size={19} />
+                  Fast payouts with <strong>Revolut and Skrill</strong>
+                </span>
+              </div>
+              <div className={styles.heroActions}>
+                <JoinLink />
+                <a href="#how-it-works" className={styles.inlineLink}>
+                  Take a look <span aria-hidden="true">↓</span>
+                </a>
+              </div>
+              <p className={styles.heroNote}>
+                Your pace. Your pick. Fast manual review before payout.
+              </p>
+            </div>
+            <div className={styles.heroVisual}>
+              <MomentArt />
             </div>
           </div>
-          <div className={styles.heroFoot}>
-            <span>01 / MAKE YOUR MOMENTS COUNT</span>
+          <div className={`${styles.heroFoot} ${styles.container}`}>
+            <span>MAKE YOUR MOMENTS COUNT</span>
             <span>
-              <Icon name="mobile" size={17} /> PHONE OR LAPTOP
+              <Icon name="mobile" size={16} /> PHONE OR DESKTOP <span aria-hidden="true">↗</span>
             </span>
           </div>
         </section>
         <section
-          id="payout-preview"
-          className={`${styles.calculatorSection} ${styles.container}`}
-          aria-labelledby="payout-title"
-          data-reveal
+          id="fast-payouts"
+          className={`${styles.fastSection} ${styles.container}`}
+          aria-labelledby="fast-title"
         >
-          <div className={styles.sectionIntro}>
-            <span className={styles.eyebrow}>02 / TRY THE POSSIBILITIES</span>
-            <h2 id="payout-title">
-              Same activity.
+          <div className={styles.fastIntro}>
+            <span className={styles.eyebrow}>02 / SMALL MINIMUM. QUICK NEXT STEP.</span>
+            <h2 id="fast-title">
+              Little wins.
               <br />
-              <span>A bigger share.</span>
+              <span>Less waiting.</span>
             </h2>
             <p>
-              A higher reward level would mean keeping more of the provider reward. Move the slider.
-              See the idea in action.
+              Cash out from just {minimum}. Most Revolut and Skrill payouts are processed very
+              quickly, with a human check first.
             </p>
-            <span className={styles.plannedTag}>PLANNED LEVELS · NOT ACTIVE</span>
+            <span className={styles.reviewTag}>
+              <Icon name="check" size={16} /> Fast manual withdrawals
+            </span>
           </div>
-          <PayoutSlider />
+          <div className={styles.fastVisual}>
+            <div className={styles.payoutTicket}>
+              <span>THE MINIMUM, MADE SMALL</span>
+              <strong>
+                {minimum}
+                <span>USD</span>
+              </strong>
+              <p>No big balance needed to take the next step.</p>
+              <div>
+                <b>Revolut</b>
+                <span>+</span>
+                <b>Skrill</b>
+                <span aria-hidden="true">↗</span>
+              </div>
+            </div>
+            <ol className={styles.payoutFlow}>
+              <li>
+                <span>01</span>Request
+              </li>
+              <li>
+                <span>02</span>Manual review
+              </li>
+              <li>
+                <span>03</span>Payout
+              </li>
+            </ol>
+            <p className={styles.smallNote}>
+              Review first, then payment. Processing time can vary.
+            </p>
+          </div>
+        </section>
+        <section
+          id="payout-preview"
+          className={styles.calculatorSection}
+          aria-labelledby="payout-title"
+        >
+          <div className={`${styles.calculatorInner} ${styles.container}`}>
+            <div className={styles.sectionIntro}>
+              <span className={styles.eyebrow}>03 / GIVE THE IDEA A SPIN</span>
+              <h2 id="payout-title">
+                A small activity.
+                <br />
+                <span>A share that grows.</span>
+              </h2>
+              <p>
+                What could future reward levels look like? Try a share of the same $1.48 provider
+                reward and see the difference.
+              </p>
+              <span className={styles.plannedTag}>PLANNED LOYALTY · NOT ACTIVE</span>
+              <div className={styles.exampleDoodle} aria-hidden="true">
+                <TallyMark size={85} />
+                <span>
+                  SAME ACTIVITY.
+                  <br />
+                  MORE POSSIBILITY. ↗
+                </span>
+              </div>
+            </div>
+            <PayoutSlider />
+          </div>
         </section>
         <section
           id="how-it-works"
@@ -215,74 +251,60 @@ export default function HomePage() {
         >
           <div className={styles.sectionHeading}>
             <div>
-              <span className={styles.eyebrow}>03 / A SIMPLE START</span>
+              <span className={styles.eyebrow}>04 / FIND YOUR RHYTHM</span>
               <h2 id="how-title">
-                Less figuring it out.
+                From “got a minute?”
                 <br />
-                More getting into it.
+                to <span>“that adds up.”</span>
               </h2>
             </div>
             <p>
-              Three steps. Clear requirements.
+              A few clear steps.
               <br />
               You always know what comes next.
             </p>
           </div>
           <div className={styles.steps}>
             {steps.map((step, i) => (
-              <article key={step.title} className={styles.step} data-reveal>
+              <article key={step.label} className={styles.step} data-reveal>
                 <div className={styles.stepTop}>
                   <span>0{i + 1}</span>
-                  <Icon name={step.icon} size={29} />
+                  <Icon name={step.icon} size={25} />
                 </div>
-                <span className={styles.stepSubtitle}>{step.subtitle}</span>
+                <span className={styles.stepSubtitle}>{step.label}</span>
                 <h3>{step.title}</h3>
                 <p>{step.detail}</p>
               </article>
             ))}
           </div>
-          <div className={styles.howNote}>
+          <p className={styles.howNote}>
             <Icon name="check" size={18} />
-            <p>
-              No shortcuts or guaranteed earnings. Just clear activities and rewards for confirmed
-              completion.
-            </p>
-          </div>
+            Confirmed rewards count. Pending rewards wait for provider verification.
+          </p>
         </section>
         <section id="reward-levels" className={styles.levelSection} aria-labelledby="levels-title">
           <div className={styles.container}>
             <div className={styles.sectionHeading}>
               <div>
-                <span className={styles.eyebrow}>04 / A HISTORY WORTH BUILDING</span>
+                <span className={styles.eyebrow}>05 / SOMETHING TO GROW INTO</span>
                 <h2 id="levels-title">
-                  Keep coming back.
+                  Little by little.
                   <br />
-                  <span>Keep a little more.</span>
+                  <span>Level by level.</span>
                 </h2>
               </div>
               <div>
-                <span className={styles.plannedTag}>LOYALTY SYSTEM IN DEVELOPMENT</span>
+                <span className={styles.plannedTag}>IN DEVELOPMENT</span>
                 <p>
-                  We’re designing levels that could recognize genuine activity over time. From a
-                  proposed 50% starting share to potentially 85%.
+                  We’re exploring ways to recognise genuine activity over time. A proposed 50%
+                  starting share, up to a potential 85%.
                 </p>
               </div>
             </div>
             <PlannedLevels />
-            <div className={styles.levelPrinciples}>
-              <span>
-                <Icon name="check" size={17} /> Confirmed activities
-              </span>
-              <span>
-                <Icon name="clock" size={17} /> History over time
-              </span>
-              <span>
-                <Icon name="home" size={17} /> One ongoing account
-              </span>
-            </div>
             <p className={styles.disclaimer}>
-              Future concept. Shares, criteria and thresholds are not final. No level changes your
-              rewards today, and 85% cannot be unlocked yet.
+              Future concept. Shares, criteria and thresholds are not final. Levels do not change
+              actual rewards or your balance, and 85% cannot be unlocked today.
             </p>
           </div>
         </section>
@@ -293,55 +315,61 @@ export default function HomePage() {
         >
           <div className={styles.sectionHeading}>
             <div>
-              <span className={styles.eyebrow}>05 / SOMETHING YOU CAN KEEP</span>
+              <span className={styles.eyebrow}>06 / YOUR REWARDS. YOUR NEXT MOVE.</span>
               <h2 id="withdrawal-title">
-                Your rewards.
+                Small minimum.
                 <br />
-                Your way out.
+                <span>Familiar wallets.</span>
               </h2>
             </div>
-            <div>
-              <p>
-                Request a withdrawal from {minWithdraw}. Every request is manually reviewed at
-                launch — most are reviewed within 1 hour, with up to 3 days in exceptional cases.
-              </p>
-            </div>
-          </div>
-          <div className={styles.paymentMethods}>
-            {methods.map((method) => (
-              <article className={styles.paymentMethod} key={method.name}>
-                <div className={styles.paymentSymbol} aria-hidden="true">
-                  {method.symbol}
-                </div>
-                <h3>{method.name}</h3>
-                <p>{method.note}</p>
-                <span>{method.state === "active" ? "ACTIVE" : "SOON"}</span>
-              </article>
-            ))}
-          </div>
-          <div className={styles.withdrawalPlan}>
-            <div className={styles.reviewIntro}>
-              <Icon name="clock" size={24} />
-              <h3>
-                Clear timing.
-                <br />
-                Human review.
-              </h3>
-            </div>
-            <div>
-              <strong>Within 1 hour</strong>
-              <span>Target for most reviews</span>
-            </div>
-            <div>
-              <strong>Up to 3 days</strong>
-              <span>In exceptional cases</span>
-            </div>
             <p>
-              Manual review at launch, with automation intended later. These are
-              processing targets, not guaranteed times. Reserved funds return to your balance if a
-              request is rejected.
+              Revolut and Skrill lead the way.
+              <br />
+              Our fastest options, with manual approval.
             </p>
           </div>
+          <div className={styles.paymentMethods}>
+            <article className={`${styles.paymentMethod} ${styles.revolut}`}>
+              <span className={styles.methodTag}>PRIMARY / FASTEST</span>
+              <div className={styles.paymentSymbol} aria-hidden="true">
+                R
+              </div>
+              <h3>Revolut</h3>
+              <p>Fast manual payouts to your wallet.</p>
+              <div>
+                <span>From {minimum}</span>
+                <Icon name="external" size={20} />
+              </div>
+            </article>
+            <article className={`${styles.paymentMethod} ${styles.skrill}`}>
+              <span className={styles.methodTag}>PRIMARY / FASTEST</span>
+              <div className={styles.paymentSymbol} aria-hidden="true">
+                S
+              </div>
+              <h3>Skrill</h3>
+              <p>A quick way to take your rewards with you.</p>
+              <div>
+                <span>From {minimum}</span>
+                <Icon name="external" size={20} />
+              </div>
+            </article>
+            <article className={`${styles.paymentMethod} ${styles.card}`}>
+              <span className={styles.methodTag}>COMING SOON</span>
+              <div className={styles.paymentSymbol} aria-hidden="true">
+                <Icon name="wallet" size={37} />
+              </div>
+              <h3>Card payouts</h3>
+              <p>Another way out is on the horizon.</p>
+              <div>
+                <span>Not available yet</span>
+                <Icon name="clock" size={20} />
+              </div>
+            </article>
+          </div>
+          <p className={styles.disclaimer}>
+            Availability depends on account and region. Check your wallet for supported methods.
+            PayPal, SOL on Solana and USDC on Solana are also supported. Most requests are reviewed within approximately 1 hour; exceptional cases may take up to 3 days. Timing is not guaranteed.
+          </p>
         </section>
         <section
           id="earn-anywhere"
@@ -350,7 +378,7 @@ export default function HomePage() {
         >
           <div className={styles.container}>
             <div className={styles.anywhereHeading}>
-              <span className={styles.eyebrow}>06 / LIFE HAS LITTLE GAPS</span>
+              <span className={styles.eyebrow}>07 / LIFE HAS LITTLE GAPS</span>
               <h2 id="anywhere-title">
                 A sofa. A seat.
                 <br />
@@ -431,20 +459,19 @@ export default function HomePage() {
           aria-labelledby="faq-title"
         >
           <div className={styles.faqIntro}>
-            <span className={styles.eyebrow}>07 / GOOD QUESTIONS</span>
+            <span className={styles.eyebrow}>08 / GOOD QUESTIONS</span>
             <h2 id="faq-title">
-              A little clarity
+              Before your
               <br />
-              goes a long way.
+              <span>first little win.</span>
             </h2>
-            <p>
-              Know what’s here.
-              <br />
-              Know what’s coming.
-            </p>
-            <Link href="/faq" className={styles.inlineLink}>
+            <p>A few things worth knowing.</p>
+            <Link href="/contact" className={styles.inlineLink}>
               More help <span aria-hidden="true">↗</span>
             </Link>
+            <div className={styles.questionDoodle} aria-hidden="true">
+              ?
+            </div>
           </div>
           <div className={styles.faqList}>
             {faqs.map(([question, answer]) => (
@@ -457,27 +484,38 @@ export default function HomePage() {
               </details>
             ))}
           </div>
-          <div className={styles.finalCta} data-reveal>
+        </section>
+        <section className={styles.closingSection} aria-labelledby="closing-title">
+          <div className={`${styles.finalCta} ${styles.container}`}>
             <div>
-              <span className={styles.eyebrow}>START SMALL. SEE WHAT FITS.</span>
-              <h2>
-                Your next spare moment.
+              <span className={styles.eyebrow}>09 / YOUR NEXT SPARE MOMENT</span>
+              <h2 id="closing-title">
+                A little time.
                 <br />
                 <span>Make it yours.</span>
               </h2>
+              <p>Surveys. Offers. A small start that fits your day.</p>
             </div>
             <div>
-              <Link href="/register" className={`${styles.cta} ${styles.ctaLight}`}>
-                Explore Freearn
-              </Link>
-              <Link href="/login">
-                Already here? Log in <span aria-hidden="true">↗</span>
-              </Link>
-              <p>Real rewards. Manual withdrawal review at launch.</p>
+              <span className={styles.closingDoodle} aria-hidden="true">
+                ↗
+              </span>
+              <JoinLink light>Start with Freearn</JoinLink>
+              <Link href="/login">Already here? Log in ↗</Link>
+              <p>Free to join. Rewards depend on eligibility and confirmed completion.</p>
             </div>
           </div>
         </section>
       </main>
+      <footer className={`${styles.footer} ${styles.container}`}>
+        <HomeBrand />
+        <span>© 2026 Freearn · A little, then a little more.</span>
+        <div>
+          <Link href="/contact">Help & support</Link>
+          <Link href="/privacy">Privacy</Link>
+          <Link href="/terms">Terms</Link>
+        </div>
+      </footer>
     </HomepageMotion>
   );
 }

@@ -1,12 +1,6 @@
 import { Navbar } from "@/components/navbar";
 import { Footer } from "@/components/footer";
-
+import { PublicFrame } from "@/components/public-frame";
 export default function PublicLayout({ children }: { children: React.ReactNode }) {
-  return (
-    <>
-      <Navbar />
-      <div id="main">{children}</div>
-      <Footer />
-    </>
-  );
+  return <PublicFrame header={<Navbar />} footer={<Footer />}>{children}</PublicFrame>;
 }

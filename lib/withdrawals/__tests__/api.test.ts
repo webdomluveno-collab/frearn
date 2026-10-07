@@ -64,20 +64,20 @@ describe("POST /api/withdrawals/request", () => {
     expect(mockedRequest).not.toHaveBeenCalled();
   });
 
-  it("2. $2.99 rejected (below_minimum)", async () => {
+  it("2. $0.09 rejected (below_minimum)", async () => {
     mockedSession.mockResolvedValue({ id: `test-user-${++uidCounter}`, email: "u@x.co" });
-    const res = await requestPost(post({ amountCents: 299, method: "paypal", destination: "a@b.co" }));
+    const res = await requestPost(post({ amountCents: 9, method: "paypal", destination: "a@b.co" }));
     expect(res.status).toBe(400);
     expect(((await res.json()) as { error: string }).error).toBe("below_minimum");
   });
 
-  it("3. exactly $3.00 accepted when store confirms", async () => {
+  it("3. exactly $0.10 accepted when store confirms", async () => {
     const sessionId = `test-user-${++uidCounter}`;
     mockedSession.mockResolvedValue({ id: sessionId, email: "u@x.co" });
-    mockedRequest.mockResolvedValue({ ok: true, request: row({ amountCents: 300 }), duplicate: false });
+    mockedRequest.mockResolvedValue({ ok: true, request: row({ amountCents: 10 }), duplicate: false });
     const res = await requestPost(
       post({
-        amountCents: 300,
+        amountCents: 10,
         method: "sol",
         destination: "7xKXtg2CW87d97TXJSDpbD5jBkheTqA83TZRuQ",
         requestKey: UID,
@@ -85,11 +85,11 @@ describe("POST /api/withdrawals/request", () => {
     );
     expect(res.status).toBe(200);
     const body = (await res.json()) as { request: { amountCents: number }; duplicate: boolean };
-    expect(body.request.amountCents).toBe(300);
+    expect(body.request.amountCents).toBe(10);
     expect(body.duplicate).toBe(false);
     // Identity comes from the session, never the body.
     expect(mockedRequest).toHaveBeenCalledWith(
-      expect.objectContaining({ userId: sessionId, amountCents: 300 })
+      expect.objectContaining({ userId: sessionId, amountCents: 10 })
     );
   });
 
@@ -180,6 +180,23 @@ describe("POST /api/withdrawals/request", () => {
       "method",
       "status",
     ]);
+  });
+});
+
+describe("withdrawal integration guard", () => {
+  it("returns a conflict when RPC rejects a second active withdrawal", async () => {
+    mockedSession.mockResolvedValue({id:`test-user-${++uidCounter}`,email:"u@x.co"});
+    mockedRequest.mockResolvedValue({ok:false,error:"pending_withdrawal"});
+    const res=await requestPost(post({amountCents:10,method:"revolut",destination:"@someone"}));
+    expect(res.status).toBe(409);
+    expect(await res.json()).toEqual({error:"pending_withdrawal"});
+  });
+  it("ignores spoofed user_id and userId in the financial request body", async () => {
+    const id=`test-user-${++uidCounter}`;
+    mockedSession.mockResolvedValue({id,email:"u@x.co"});
+    mockedRequest.mockResolvedValue({ok:true,request:row({amountCents:10}),duplicate:false});
+    await requestPost(post({amountCents:10,method:"revolut",destination:"@someone",user_id:"victim",userId:"victim"}));
+    expect(mockedRequest).toHaveBeenCalledWith(expect.objectContaining({userId:id}));
   });
 });
 

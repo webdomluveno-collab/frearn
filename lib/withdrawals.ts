@@ -4,7 +4,7 @@
  * client use is for UX only (error messages, masking, method metadata).
  */
 
-export const MINIMUM_WITHDRAWAL_CENTS = 300; // $3.00 — matches request_withdrawal() RPC
+export const MINIMUM_WITHDRAWAL_CENTS = 10; // $0.10 — matches request_withdrawal() RPC
 
 export const ACTIVE_WITHDRAWAL_METHODS = [
   "paypal",
@@ -130,7 +130,7 @@ export function parseAmountCents(input: string): number | null {
   return Number.isSafeInteger(cents) ? cents : null;
 }
 
-/** Server-side amount gate: integer, ≥ $3.00. Balance check happens atomically in the RPC. */
+/** Server-side amount gate: integer, ≥ $0.10. Balance check happens atomically in the RPC. */
 export function isWithdrawableAmount(cents: unknown): cents is number {
   return typeof cents === "number" && Number.isInteger(cents) && cents >= MINIMUM_WITHDRAWAL_CENTS;
 }
@@ -141,7 +141,9 @@ export type WithdrawalRequestError =
   | "invalid_method"
   | "invalid_destination"
   | "insufficient_balance"
-  | "duplicate_request";
+  | "duplicate_request"
+  | "pending_withdrawal"
+  | "invalid_request";
 
 /** Masked for UI/logs. Full destinations live only in the DB (service-role). */
 export function maskDestination(method: ActiveWithdrawalMethod, destination: string): string {

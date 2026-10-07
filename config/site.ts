@@ -1,3 +1,5 @@
+import { MINIMUM_WITHDRAWAL_CENTS } from "@/lib/withdrawals";
+
 /**
  * CENTRAL SITE CONFIGURATION
  * --------------------------
@@ -10,16 +12,15 @@
 
 export const siteConfig = {
   // -- Brand --
-  name: "Frearn",
+  name: "Freearn",
   tagline: "Your time. Your rewards.",
   description:
     "Complete surveys and online tasks matched to you. See the reward before you start and track everything in one place.",
-  logoText: "Frearn",
+  logoText: "Freearn",
   logoMark: "F", // temporary wordmark monogram
 
   // -- Domains / contact --
-  // NOTE: brand is "Frearn", but the currently owned domain is freearn.online.
-  // If frearn.online is acquired later, update url + supportEmail here.
+  // Public domain and support contact.
   url: process.env.NEXT_PUBLIC_SITE_URL ?? "https://freearn.online",
   supportEmail:
     process.env.NEXT_PUBLIC_SUPPORT_EMAIL ?? "support@freearn.online",
@@ -38,7 +39,7 @@ export const siteConfig = {
   waitlistEnabled: true,
 
   // -- Wallet / withdrawals --
-  minimumWithdrawalCents: 300, // $3.00 — change centrally
+  minimumWithdrawalCents: MINIMUM_WITHDRAWAL_CENTS,
   currency: "USD" as const,
   // Only methods listed in `liveWithdrawalMethods` are submittable.
   // Card stays planned: no card payout provider is integrated (never collect card data).
@@ -52,13 +53,13 @@ export const siteConfig = {
   enabledCountries: [] as string[], // empty = pre-launch, region-gated
 
   nav: [
-    { label: "Earn", href: "/#earn-types" },
+    { label: "Earn", href: "/#earn-anywhere" },
     { label: "How it works", href: "/#how-it-works" },
-    { label: "Rewards", href: "/#rewards" },
+    { label: "Rewards", href: "/#reward-levels" },
     { label: "FAQ", href: "/faq" },
   ],
   footer: [
-    { label: "About", href: "/#top" },
+    { label: "About", href: "/" },
     { label: "How it works", href: "/#how-it-works" },
     { label: "FAQ", href: "/faq" },
     { label: "Privacy", href: "/privacy" },

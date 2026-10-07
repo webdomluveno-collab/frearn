@@ -44,12 +44,13 @@ export default async function WalletPage() {
   const user = await getSessionUser();
   const txns = await getMyLedger(user?.id ?? null);
   let withdrawals: WithdrawalListItem[] = [];
+  let withdrawalsUnavailable = false;
   if (user) {
     try {
       withdrawals = (await listMyWithdrawals(user.id)).map(toListItem);
     } catch {
-      withdrawals = [];
+      withdrawalsUnavailable = true;
     }
   }
-  return <WalletView txns={txns} summary={summarizeLedger(txns)} withdrawals={withdrawals} />;
+  return <WalletView txns={txns} summary={summarizeLedger(txns)} withdrawals={withdrawals} withdrawalsUnavailable={withdrawalsUnavailable} />;
 }

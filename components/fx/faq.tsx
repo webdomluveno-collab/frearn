@@ -1,5 +1,7 @@
 "use client";
 
+import { MINIMUM_WITHDRAWAL_CENTS } from "@/lib/withdrawals";
+import { centsToUsd } from "@/lib/money";
 import { useState } from "react";
 import { Icon } from "./icon";
 import { Button } from "./primitives";
@@ -11,8 +13,8 @@ export interface FaqItem {
 
 export const FAQ_ITEMS: FaqItem[] = [
   {
-    q: "What is Frearn?",
-    a: "Frearn is an early-access rewards platform where users complete online surveys — and later other tasks — and track transparent rewards in one wallet.",
+    q: "What is Freearn?",
+    a: "Freearn is an early-access rewards platform where users complete online surveys — and later other tasks — and track transparent rewards in one wallet.",
   },
   {
     q: "How do I earn rewards?",
@@ -32,7 +34,7 @@ export const FAQ_ITEMS: FaqItem[] = [
   },
   {
     q: "How do withdrawals work?",
-    a: "Request a withdrawal from $3.00. PayPal, Skrill, Revolut, SOL and USDC on Solana are active; card payouts are coming soon. Every request is manually reviewed — most within 1 hour, with up to 3 days in exceptional cases. Requested funds are reserved immediately and returned if a request is rejected.",
+    a: `Request a withdrawal from ${centsToUsd(MINIMUM_WITHDRAWAL_CENTS)}. PayPal, Skrill, Revolut, SOL and USDC on Solana are active; card payouts are coming soon. Every request is manually reviewed — most within approximately 1 hour, with up to 3 days in exceptional cases. Requested funds are reserved immediately and returned if a request is rejected. One active request per account is allowed at a time. Revolut and Skrill are our fastest payout options; review times are estimates, not guarantees.`,
   },
   {
     q: "What information do I need to provide?",

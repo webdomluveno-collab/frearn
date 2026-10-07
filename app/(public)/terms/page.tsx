@@ -1,3 +1,5 @@
+import { MINIMUM_WITHDRAWAL_CENTS } from "@/lib/withdrawals";
+import { centsToUsd } from "@/lib/money";
 import type { Metadata } from "next";
 import { baseMetadata } from "@/lib/seo";
 import { SectionHeading } from "@/components/fx/primitives";
@@ -15,7 +17,7 @@ export default function TermsPage() {
     ["VPN / proxy abuse", "Misrepresenting your location (e.g. via VPN/proxy) to access unavailable opportunities is prohibited."],
     ["Rewards", "Rewards are promotional credits, not wages. Amounts, availability, and qualification vary. Starting a survey does not guarantee completion or reward."],
     ["Reversals / chargebacks", "Rewards may be reversed for fraud, provider clawbacks, duplicate crediting, or invalid completions."],
-    ["Withdrawals", "Withdrawals require meeting the minimum threshold ($3.00) and manual review. Methods vary by country. Requested funds are reserved immediately and returned if a request is rejected."],
+    ["Withdrawals", `Withdrawals require meeting the minimum threshold (${centsToUsd(MINIMUM_WITHDRAWAL_CENTS)}) and manual review. Methods vary by country. Requested funds are reserved immediately and returned if a request is rejected. One active withdrawal request per account is allowed at a time.`],
     ["Account suspension", "We may suspend accounts for violations, abuse, or risk, with transaction history retained for review."],
     ["Third-party opportunities", "Opportunities may be provided by third parties subject to their own terms. We are not responsible for third-party content, qualification decisions, or availability."],
     ["Limitation of liability", "To the maximum extent permitted by law, the service is provided 'as is' without warranties. Liability is limited as permitted by applicable law."],

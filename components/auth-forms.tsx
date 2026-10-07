@@ -6,44 +6,32 @@ import { useRouter } from "next/navigation";
 import { Button } from "@/components/fx/primitives";
 import { Brand } from "@/components/fx/brand";
 import { Icon } from "@/components/fx/icon";
-import { TallyMark } from "@/components/fx/tally";
+import { MomentArt } from "@/components/fx/moment-art";
+import styles from "./auth-forms.module.css";
+import { MINIMUM_WITHDRAWAL_CENTS } from "@/lib/withdrawals";
+import { centsToUsd } from "@/lib/money";
 import { getSupabaseBrowser, isSupabaseConfigured } from "@/lib/auth/client";
 import { siteConfig } from "@/config/site";
 import { COUNTRIES, isValidCountryCode, normalizeCountryCode } from "@/lib/countries";
 
 function AuthShell({ title, sub, children }: { title: string; sub: string; children: ReactNode }) {
   return (
-    <div className="auth-page">
+    <div className={`auth-page ${styles.auth}`}>
       <a className="skip-link" href="#auth-main">
         Skip to form
       </a>
       <aside className="auth-brand-panel">
-        <Brand light />
+        <Brand />
         <div className="auth-brand-story">
-          <span className="eyebrow">YOUR TIME ADDS UP</span>
-          <h2>
-            ONE SMALL
-            <br />
-            THING.
-            <br />
-            <span>
-              THEN
-              <br />
-              ANOTHER.
-            </span>
-          </h2>
-          <p>
-            A survey. A game. A task.
-            <br />A growing history of time well spent.
-          </p>
-          <div className="auth-tally-art" aria-hidden="true">
-            <TallyMark size={250} />
-            <span>
-              EVERY MARK
-              <br />
-              IS A START.
-            </span>
+          <span className="eyebrow">LITTLE MOMENTS. REAL POSSIBILITIES.</span>
+          <h2>A little time.<br />A little <span>more.</span></h2>
+          <p>Discover surveys and offers. Choose what fits your day.</p>
+          <div className={styles.benefits}>
+            <span><Icon name="wallet" size={17} />Cash out from just {centsToUsd(MINIMUM_WITHDRAWAL_CENTS)}</span>
+            <span><Icon name="check" size={17} />Fast payouts with Revolut &amp; Skrill</span>
+            <small>Manual review comes first. Payout timing can vary.</small>
           </div>
+          <MomentArt compact />
         </div>
         <span className="auth-brand-footer">At your pace. On your terms.</span>
       </aside>
@@ -169,7 +157,7 @@ export function LoginForm() {
   return (
     <AuthShell title="A little more starts here." sub="Good to see you again. Pick up where you left off.">
       {!configured && <NotConfigured />}
-      <form className="form-stack" onSubmit={submit} noValidate>
+      <form className="form-stack" onSubmit={submit}>
         <div className="field">
           <label htmlFor="email">Email address</label>
           <input
@@ -275,7 +263,7 @@ export function RegisterForm() {
   return (
     <AuthShell title="Your first little win awaits." sub="Make a little more of the time you already have.">
       {!configured && <NotConfigured />}
-      <form className="form-stack" onSubmit={submit} noValidate>
+      <form className="form-stack" onSubmit={submit}>
         <div className="field">
           <label htmlFor="r-email">Email address</label>
           <input
@@ -378,7 +366,7 @@ export function ForgotForm() {
           </p>
         </div>
       ) : (
-        <form className="form-stack" onSubmit={submit} noValidate>
+        <form className="form-stack" onSubmit={submit}>
           <div className="field">
             <label htmlFor="f-email">Email address</label>
             <input
@@ -442,7 +430,7 @@ export function ResetPasswordForm() {
   return (
     <AuthShell title="A fresh start for your account." sub="Choose a new password below.">
       {!configured && <NotConfigured />}
-      <form className="form-stack" onSubmit={submit} noValidate>
+      <form className="form-stack" onSubmit={submit}>
         <PasswordField
           id="n-pass"
           label="New password"

@@ -1,4 +1,4 @@
--- Frearn / PostgreSQL-ready schema (Supabase compatible)
+-- Freearn / PostgreSQL-ready schema (Supabase compatible)
 -- Money: NUMERIC(12,2) or BIGINT cents. Ledger is immutable; balances derived.
 -- TODO(legal/security): review retention + RLS policies before production.
 

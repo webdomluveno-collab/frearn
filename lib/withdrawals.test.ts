@@ -14,13 +14,13 @@ import {
 } from "./withdrawals";
 
 describe("withdrawal minimum", () => {
-  it("is $3.00 / 300 cents", () => {
-    expect(MINIMUM_WITHDRAWAL_CENTS).toBe(300);
+  it("is $0.10 / 10 cents", () => {
+    expect(MINIMUM_WITHDRAWAL_CENTS).toBe(10);
   });
 
-  it("accepts exactly 300 when the gate is met", () => {
-    expect(isWithdrawableAmount(300)).toBe(true);
-    expect(isWithdrawableAmount(299)).toBe(false);
+  it("accepts exactly 10 when the gate is met", () => {
+    expect(isWithdrawableAmount(10)).toBe(true);
+    expect(isWithdrawableAmount(9)).toBe(false);
   });
 
   it("rejects zero, negative, non-integer, and non-number amounts", () => {

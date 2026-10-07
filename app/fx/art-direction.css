@@ -1,7 +1,7 @@
 /* THE TALLY — one mark, another mark, a step forward. */
 :root {
-  --brand: #c43b23;
-  --citron: #e9edac;
+  --brand: var(--teal);
+  --citron: var(--aqua);
   --display: var(--font-display), Impact, sans-serif;
 }
 .brand {
@@ -22,7 +22,7 @@
   color: #fff;
 }
 .button-primary:hover:not(:disabled) {
-  background: #bb361e;
+  background: #075c54;
 }
 .button-secondary:hover:not(:disabled),
 .button-ghost:hover:not(:disabled) {
@@ -33,7 +33,7 @@
   background: var(--citron);
 }
 .button-lime:hover:not(:disabled) {
-  background: #dadd93;
+  background: #b3eee0;
 }
 :focus-visible {
   outline-color: var(--brand);
@@ -828,7 +828,7 @@ button:focus-visible .strip-art i {
   background: var(--paper);
 }
 .mobile-nav a.active {
-  color: #b8371e;
+  color: var(--brand);
 }
 .mobile-nav a.active::before {
   background: var(--brand);
@@ -915,7 +915,7 @@ button:focus-visible .strip-art i {
   box-shadow: none;
 }
 .text-link {
-  color: #a6311d;
+  color: #08675f;
 }
 
 /* Authentication is a quiet form next to a printed poster. */
@@ -973,7 +973,7 @@ button:focus-visible .strip-art i {
   font-size: 2.4rem;
 }
 .auth-password-label > a {
-  color: #a6311d;
+  color: #08675f;
 }
 .auth-preview-note {
   background: #ebe6da;

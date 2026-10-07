@@ -2920,3 +2920,7 @@
   color: inherit;
   text-decoration: underline;
 }
+
+/* User-controlled identifiers must fit narrow wallet/admin layouts. */
+.wd-main, .review-list dd, .transaction-description { min-width: 0; overflow-wrap: anywhere; }
+.review-list dd.mono { word-break: break-all; }

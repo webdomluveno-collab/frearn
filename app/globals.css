@@ -7,20 +7,21 @@
  * The product experience is styled by app/fx/*.css (Codex design system).
  */
 :root {
-  --background: 0 0% 100%;
-  --foreground: 222 47% 11%;
-  --card: 0 0% 100%;
-  --card-foreground: 222 47% 11%;
-  --muted: 220 14% 96%;
-  --muted-foreground: 220 9% 40%;
-  --border: 220 13% 91%;
-  --ink: 222 47% 11%;
-  --brand: 243 75% 59%;
-  --brand-foreground: 0 0% 100%;
-  --brand-2: 269 80% 62%;
-  --accent: 243 75% 59%;
-  --accent-foreground: 0 0% 100%;
-  --radius: 1rem;
+  --font-sans: var(--font-dm-sans);
+  --ui-background: 0 0% 100%;
+  --ui-foreground: 222 47% 11%;
+  --ui-card: 0 0% 100%;
+  --ui-card-foreground: 222 47% 11%;
+  --ui-muted: 220 14% 96%;
+  --ui-muted-foreground: 220 9% 40%;
+  --ui-border: 220 13% 91%;
+  --ui-ink: 222 47% 11%;
+  --ui-brand: 243 75% 59%;
+  --ui-brand-foreground: 0 0% 100%;
+  --ui-brand-2: 269 80% 62%;
+  --ui-accent: 243 75% 59%;
+  --ui-accent-foreground: 0 0% 100%;
+  --ui-radius: 1rem;
 }
 
 @layer base {
@@ -29,8 +30,8 @@
 
 /* Retained for admin + development-only screens that still use ui/* components. */
 .btn-gradient {
-  background: linear-gradient(100deg, hsl(var(--brand)), hsl(var(--brand-2)));
-  box-shadow: 0 8px 24px -8px hsl(var(--brand) / 0.55), inset 0 1px 0 rgb(255 255 255 / 0.22);
+  background: linear-gradient(100deg, hsl(var(--ui-brand)), hsl(var(--ui-brand-2)));
+  box-shadow: 0 8px 24px -8px hsl(var(--ui-brand) / 0.55), inset 0 1px 0 rgb(255 255 255 / 0.22);
 }
 .btn-gradient:hover {
   filter: brightness(1.06);

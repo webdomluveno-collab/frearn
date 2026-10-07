@@ -6,6 +6,9 @@ import { getCpxAdminStats } from "@/lib/db/cpx-store";
 import { listPendingWithdrawals } from "@/lib/db/withdrawals";
 import { AdminWithdrawalActions } from "@/components/admin-withdrawals";
 
+// Authenticated screens must be evaluated per request, including builds without local credentials.
+export const dynamic = "force-dynamic";
+
 export default async function AdminPage() {
   // Defense in depth: middleware already 404s non-admins; re-check here.
   const user = await getSessionUser();

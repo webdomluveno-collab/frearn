@@ -1,0 +1,198 @@
+.auth {
+  background: var(--cream);
+  grid-template-columns: minmax(400px, 1fr) minmax(430px, 1fr);
+}
+.auth :global(.auth-brand-panel) {
+  padding: 32px 44px;
+  background: #e2f0e8;
+  color: var(--black);
+  min-height: 100dvh;
+}
+.auth :global(.brand) {
+  color: var(--black);
+  font-size: 30px;
+}
+.auth :global(.auth-brand-story) {
+  margin-block: auto;
+  padding-top: 30px;
+  max-width: 500px;
+  align-self: center;
+  width: 100%;
+}
+.auth :global(.auth-brand-story > .eyebrow) {
+  color: var(--teal);
+  font-size: 10px;
+  letter-spacing: 0.07em;
+}
+.auth :global(.auth-brand-story h2) {
+  font-family: var(--font);
+  font-size: clamp(43px, 4.6vw, 65px);
+  font-weight: 750;
+  letter-spacing: -0.065em;
+  line-height: 1.04;
+  margin: 20px 0 15px;
+}
+.auth :global(.auth-brand-story h2 span) {
+  color: var(--teal);
+}
+.auth :global(.auth-brand-story > p) {
+  color: var(--grey);
+  font-size: 13px;
+  line-height: 1.6;
+  margin-bottom: 12px;
+}
+.auth :global(.auth-brand-story) > div:last-child {
+  margin-inline: auto;
+  width: 82%;
+  margin-block: 20px 12px;
+}
+.benefits {
+  border-top: 1px solid #b4d1c9;
+  display: grid;
+  gap: 10px;
+  padding-top: 20px;
+  font-size: 12px;
+}
+.benefits > span {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+.benefits svg {
+  color: var(--teal);
+}
+.benefits small {
+  font-size: 9px;
+  color: var(--grey);
+}
+.auth :global(.auth-form-panel) {
+  background: var(--cream);
+  padding: 35px 48px;
+}
+.auth :global(.auth-form-container) {
+  max-width: 390px;
+  padding-block: 45px;
+}
+.auth :global(.auth-form-container h1) {
+  font-size: 39px;
+  font-weight: 750;
+  letter-spacing: -0.055em;
+  line-height: 1.08;
+}
+.auth :global(.auth-description) {
+  font-size: 13px;
+}
+.auth :global(.badge) {
+  border-radius: 30px;
+  background: #e5efe9;
+  color: #315a4f;
+  font-size: 10px;
+  letter-spacing: 0.02em;
+}
+.auth :global(.field input),
+.auth :global(.field select) {
+  background: white;
+  border-radius: 9px;
+  min-height: 49px;
+  border-color: #c8d6d0;
+}
+.auth :global(.field input:focus) {
+  border-color: var(--blue);
+  box-shadow: 0 0 0 3px #254bd71a;
+}
+.auth :global(.field label) {
+  font-size: 12px;
+}
+.auth :global(.button) {
+  border-radius: 9px;
+  min-height: 50px;
+}
+.auth :global(.button-primary) {
+  background: var(--black);
+  color: white;
+}
+.auth :global(.button-primary:hover:not(:disabled)) {
+  background: var(--blue);
+}
+.auth :global(.text-link),
+.auth :global(.auth-password-label > a) {
+  color: var(--teal);
+}
+.auth :global(.auth-preview-note) {
+  border-radius: 9px;
+  background: #eef2ed;
+  color: #53655f;
+  font-size: 10px;
+}
+.auth :global(.auth-switch),
+.auth :global(.auth-demo-link) {
+  font-size: 12px;
+}
+.auth :global(.auth-demo-link > .text-link) {
+  font-size: 12px;
+}
+.auth :global(.auth-footer) {
+  font-size: 10px;
+}
+.auth :global(.password-input > button) {
+  min-width: 44px;
+  min-height: 44px;
+  right: 3px;
+}
+.auth :global(:focus-visible) {
+  outline-color: var(--blue);
+}
+@media (max-width: 1000px) {
+  .auth {
+    grid-template-columns: minmax(340px, 0.9fr) minmax(370px, 1fr);
+  }
+  .auth :global(.auth-brand-panel) {
+    padding: 30px;
+  }
+  .auth :global(.auth-form-panel) {
+    padding: 30px;
+  }
+  .auth :global(.auth-brand-story h2) {
+    font-size: 45px;
+  }
+  .auth :global(.auth-brand-story) > div:last-child {
+    width: 100%;
+  }
+}
+@media (max-width: 750px) {
+  .auth {
+    display: block;
+  }
+  .auth :global(.auth-brand-panel) {
+    display: none;
+  }
+  .auth :global(.auth-form-panel) {
+    min-height: 100dvh;
+    padding: 26px 24px;
+    background: radial-gradient(ellipse at 100% 0, #e1f1e8 0, transparent 47%), var(--cream);
+  }
+  .auth :global(.auth-topbar) {
+    gap: 20px;
+    justify-content: space-between;
+  }
+  .auth :global(.auth-mobile-brand) {
+    display: block;
+  }
+  .auth :global(.auth-topbar > .text-link) {
+    font-size: 11px;
+  }
+  .auth :global(.auth-form-container) {
+    padding-block: 48px;
+    margin-block: auto;
+  }
+  .auth :global(.auth-form-container h1) {
+    font-size: 37px;
+  }
+  .auth :global(.auth-form-container > .badge) {
+    margin-bottom: 20px;
+  }
+}
+
+.auth :global(.auth-brand-footer) { color: var(--grey); }
+.auth :global(.auth-brand-story h2) { text-transform: none; }
+.auth :global(.field select) { width: 100%; padding: 12px; }

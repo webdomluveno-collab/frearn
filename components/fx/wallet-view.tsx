@@ -32,7 +32,9 @@ export interface WithdrawalListItem {
 }
 
 const ERROR_COPY: Record<string, string> = {
-  invalid_amount: "Enter an amount like 3.00.",
+  invalid_amount: `Enter an amount like ${(MINIMUM_WITHDRAWAL_CENTS / 100).toFixed(2)}.`,
+  pending_withdrawal: "You already have a withdrawal under review. Wait until it is paid or rejected.",
+  invalid_request: "This request could not be verified. Refresh your wallet and try again.",
   below_minimum: `The minimum withdrawal is ${centsToUsd(MINIMUM_WITHDRAWAL_CENTS)}.`,
   insufficient_balance: "That amount is more than your available balance.",
   invalid_method: "Choose an available payout method.",
@@ -59,7 +61,7 @@ function statusHelp(status: string): string {
 function WithdrawalForm({ availableCents, onDone }: { availableCents: number; onDone: () => void }) {
   const router = useRouter();
   const [amount, setAmount] = useState("");
-  const [method, setMethod] = useState<ActiveWithdrawalMethod>("paypal");
+  const [method, setMethod] = useState<ActiveWithdrawalMethod>("revolut");
   const [destination, setDestination] = useState("");
   const [stage, setStage] = useState<"edit" | "review">("edit");
   const [error, setError] = useState<string | null>(null);
@@ -141,7 +143,7 @@ function WithdrawalForm({ availableCents, onDone }: { availableCents: number; on
           </div>
         </dl>
         <p className="muted small">
-          Most requests are reviewed within 1 hour; exceptional cases may take up to 3 days.
+          Most requests are reviewed within approximately 1 hour; exceptional cases may take up to 3 days.
           Reserved funds return to your balance if a request is rejected.
         </p>
         {error && (
@@ -181,7 +183,7 @@ function WithdrawalForm({ availableCents, onDone }: { availableCents: number; on
             id="wd-amount"
             inputMode="decimal"
             autoComplete="off"
-            placeholder="3.00"
+            placeholder={(MINIMUM_WITHDRAWAL_CENTS / 100).toFixed(2)}
             value={amount}
             onChange={(e) => setAmount(e.target.value)}
             aria-describedby="wd-amount-help"
@@ -270,10 +272,12 @@ export function WalletView({
   txns,
   summary,
   withdrawals,
+  withdrawalsUnavailable = false,
 }: {
   txns: LedgerTransaction[];
   summary: WalletSummary;
   withdrawals: WithdrawalListItem[];
+  withdrawalsUnavailable?: boolean;
 }) {
   const [tab, setTab] = useState("activity");
   const [status, setStatus] = useState("all");
@@ -283,7 +287,8 @@ export function WalletView({
   const filtered = items.filter((item) => status === "all" || item.status === status);
 
   const { availableCents, pendingCents, lifetimeCents } = summary;
-  const canWithdraw = availableCents >= MINIMUM_WITHDRAWAL_CENTS;
+  const hasActiveWithdrawal = withdrawals.some((w) => ["requested", "reviewing", "approved", "processing"].includes(w.status));
+  const canWithdraw = availableCents >= MINIMUM_WITHDRAWAL_CENTS && !hasActiveWithdrawal && !justRequested && !withdrawalsUnavailable;
   const progress = Math.min(100, (availableCents / MINIMUM_WITHDRAWAL_CENTS) * 100);
 
   return (
@@ -301,7 +306,7 @@ export function WalletView({
         ) : (
           <Button disabled title={`Withdrawals open at ${centsToUsd(MINIMUM_WITHDRAWAL_CENTS)}`}>
             <Icon name="wallet" size={18} />
-            Withdraw from {centsToUsd(MINIMUM_WITHDRAWAL_CENTS)}
+            {withdrawalsUnavailable ? "Withdrawals unavailable" : hasActiveWithdrawal || justRequested ? "Withdrawal under review" : `Withdraw from ${centsToUsd(MINIMUM_WITHDRAWAL_CENTS)}`}
           </Button>
         )}
       </SectionHeading>
@@ -345,7 +350,9 @@ export function WalletView({
           </p>
         </section>
       </div>
-      {!canWithdraw && (
+      {withdrawalsUnavailable && <div className="notice notice-warning" role="alert">Withdrawal history could not be loaded. Refresh your wallet before requesting a withdrawal.</div>}
+      {hasActiveWithdrawal && <div className="notice" role="status">One withdrawal at a time. Your existing request must be paid or rejected before you can request another.</div>}
+      {availableCents < MINIMUM_WITHDRAWAL_CENTS && (
         <section className="surface threshold-panel" aria-label="Withdrawal threshold">
           <div>
             <strong>
@@ -374,8 +381,8 @@ export function WalletView({
         <p>
           Pending rewards can be confirmed or reversed after review. Your available balance
           reflects confirmed ledger activity, including adjustments and withdrawals.{" "}
-          {siteConfig.withdrawalNote} Most requests are reviewed within 1 hour; exceptional cases
-          may take up to 3 days.
+          {siteConfig.withdrawalNote} Most requests are reviewed within approximately 1 hour; exceptional cases
+          may take up to 3 days. Timing is estimated, not guaranteed.
         </p>
       </div>
       <section className="surface ledger-panel">

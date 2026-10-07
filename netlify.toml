@@ -1,4 +1,4 @@
-# Netlify deployment — Frearn runs on the Next.js Runtime (server routes required
+# Netlify deployment — Freearn runs on the Next.js Runtime (server routes required
 # for auth callbacks and the CPX postback endpoint). Do NOT switch this site to
 # a static export: `output: "export"` drops /api/* and breaks postbacks.
 [build]

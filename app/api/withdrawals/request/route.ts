@@ -76,6 +76,9 @@ export async function POST(req: Request) {
 
   if (!result.ok) {
     // insufficient_balance -> 422 (well-formed but not fundable); rest -> 400/503.
+    if (result.error === "pending_withdrawal") {
+      return NextResponse.json({ error: result.error }, { status: 409 });
+    }
     if (result.error === "insufficient_balance") {
       return NextResponse.json({ error: result.error }, { status: 422 });
     }

@@ -17,7 +17,7 @@ function fakeClient(rows: Record<string, unknown>[]) {
   const calls: Array<{ op: string; args: unknown[] }> = [];
   const chain: Record<string, unknown> = {};
   const terminal = () =>
-    Promise.resolve({ data: rows, error: null });
+    Promise.resolve({ data: rows.filter(row => calls.filter(c => c.op === "eq").every(c => row[c.args[0] as string] === c.args[1])), error: null });
   chain.select = (...args: unknown[]) => {
     calls.push({ op: "select", args });
     return chain;
@@ -64,7 +64,8 @@ describe("withdrawal reads are user-scoped", () => {
     const eqUser = db.calls.find((c) => c.op === "eq" && c.args[0] === "user_id");
     expect(eqUser?.args[1]).toBe(UID);
     expect(eqUser?.args[1]).not.toBe(OTHER);
-    expect(rows.every((r) => r.userId === UID || true)).toBe(true);
+    expect(rows).toHaveLength(1);
+    expect(rows.every((r) => r.userId === UID)).toBe(true);
     expect(db.calls.some((c) => c.op === "from" && c.args[0] === "withdrawal_requests")).toBe(true);
   });
 });

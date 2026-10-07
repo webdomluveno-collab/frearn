@@ -18,6 +18,8 @@ const WITHDRAWAL_ERROR_CODES = new Set([
   "invalid_method",
   "invalid_destination",
   "insufficient_balance",
+  "pending_withdrawal",
+  "invalid_request",
   "invalid_action",
   "invalid_transition",
   "not_found",
@@ -90,6 +92,7 @@ export async function requestWithdrawal(
     .from("withdrawal_requests")
     .select(ROW_COLUMNS)
     .eq("id", out.request_id)
+    .eq("user_id", input.userId)
     .single();
   if (readError || !row) return { ok: false, error: "unavailable" };
   return { ok: true, request: toRow(row as Record<string, unknown>), duplicate: out.is_duplicate };

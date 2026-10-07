@@ -1,4 +1,4 @@
-# Frearn (freearn.online)
+# Freearn (freearn.online)
 
 Global rewards platform — pre-launch MVP. Earn by completing surveys (later: offers, games, research, app testing, microtasks). Transparent rewards, ledger-based wallet, provider-neutral architecture.
 
@@ -56,7 +56,7 @@ npm run build
 
 ## 5b. Manual withdrawals (live, operator-reviewed)
 
-- Minimum $3.00 (300 cents, `MINIMUM_WITHDRAWAL_CENTS` in `lib/withdrawals.ts`,
+- Minimum $0.10 (10 cents, `MINIMUM_WITHDRAWAL_CENTS` in `lib/withdrawals.ts`,
   mirrored by the `request_withdrawal()` RPC).
 - `POST /api/withdrawals/request` (session auth, rate-limited): validates
   integer cents, method allowlist, and destination, then calls the atomic RPC.
@@ -116,7 +116,7 @@ Notes for the static version:
 
 ## 9. CPX Research integration (live provider)
 
-Frearn's first real survey provider is **CPX Research** (App ID `36592`, site `https://freearn.online`).
+Freearn's first real survey provider is **CPX Research** (App ID `36592`, site `https://freearn.online`).
 CPX shows users surveys inside an embedded SurveyWall; completions arrive as
 server-to-server postbacks that credit the immutable ledger exactly once.
 
@@ -181,7 +181,7 @@ factor); `amount_usd` is stored as publisher revenue for margin accounting.
 
 ### 9.5 Reward assumptions (CPX panel: factor 0.70 / bonus 1.00)
 
-- `amount_local` is treated as the **authoritative per-user reward** — Frearn
+- `amount_local` is treated as the **authoritative per-user reward** — Freearn
   does NOT re-apply the 70% factor (that would double-discount).
 - `amount_usd` is treated as the **publisher payout**; margin = revenue − reward.
 - Both are parsed as exact decimal strings into integer cents (no floats).
@@ -509,3 +509,7 @@ HMAC payload, then implement verified crediting + reversals.
 - [ ] Raw provider payloads never exposed to users; admin-only.
 - [ ] Support email / domain set (`support@freearn.online` — configured).
 - [ ] No secrets with `NEXT_PUBLIC_` prefix except anon key + URL.
+
+### Final withdrawal policy (migration 006)
+
+Apply `database/migrations/006_ten_cent_withdrawals.sql` after 005 before deploying this frontend. The authoritative RPC accepts amounts from 10 cents and rejects new requests while any requested/reviewing/approved/processing request remains active. Same-key retries return the original request; a key belonging to another user is rejected. Existing requests and settlement accounting are retained.
