@@ -4,73 +4,63 @@
  * client use is for UX only (error messages, masking, method metadata).
  */
 
-export const MINIMUM_WITHDRAWAL_CENTS = 10; // $0.10 — matches request_withdrawal() RPC
-
-export const ACTIVE_WITHDRAWAL_METHODS = [
-  "paypal",
-  "skrill",
-  "revolut",
-  "sol",
-  "usdc_solana",
-] as const;
-
-export type ActiveWithdrawalMethod = (typeof ACTIVE_WITHDRAWAL_METHODS)[number];
-
-/** Planned but NOT submittable (no payout provider integrated — never collect card data). */
-export const PLANNED_WITHDRAWAL_METHODS = ["card"] as const;
-
-export interface WithdrawalMethodMeta {
-  id: ActiveWithdrawalMethod;
-  label: string;
-  destinationLabel: string;
-  destinationPlaceholder: string;
-  destinationHint: string;
-}
-
-export const WITHDRAWAL_METHOD_META: Record<ActiveWithdrawalMethod, WithdrawalMethodMeta> = {
+/** One UI/server rule set. Migration 007 independently enforces these rules in PostgreSQL. */
+export const PAYOUT_RULES = {
+  revolut: {
+    enabled: true, minimumCents: 10, label: "Revolut",
+    destinationLabel: "Revolut @username", destinationPlaceholder: "@username",
+    destinationHint: "Your Revtag, starting with @. Enter it carefully — you are responsible for its accuracy. Not “Revolut Pay”.",
+  },
   paypal: {
-    id: "paypal",
-    label: "PayPal",
-    destinationLabel: "PayPal email",
-    destinationPlaceholder: "you@example.com",
+    enabled: true, minimumCents: 10, label: "PayPal",
+    destinationLabel: "PayPal email", destinationPlaceholder: "you@example.com",
     destinationHint: "The operator sends money manually to this email.",
   },
-  skrill: {
-    id: "skrill",
-    label: "Skrill",
-    destinationLabel: "Skrill email",
-    destinationPlaceholder: "you@example.com",
-    destinationHint: "The operator sends a manual Skrill-to-Skrill transfer.",
-  },
-  revolut: {
-    id: "revolut",
-    label: "Revolut",
-    destinationLabel: "Revolut @username",
-    destinationPlaceholder: "@username",
-    destinationHint:
-      "Your Revtag, starting with @. Enter it carefully — you are responsible for its accuracy. Not “Revolut Pay”.",
+  ltc: {
+    enabled: true, minimumCents: 100, label: "Litecoin",
+    destinationLabel: "Litecoin wallet address", destinationPlaceholder: "L…, M… or ltc1…",
+    destinationHint: "LTC on Litecoin mainnet only. Use an L, M or ltc1 SegWit address; MWEB and other networks are not supported.",
   },
   sol: {
-    id: "sol",
-    label: "SOL",
-    destinationLabel: "Solana wallet address",
-    destinationPlaceholder: "Solana address (base58)",
+    enabled: true, minimumCents: 100, label: "SOL",
+    destinationLabel: "Solana wallet address", destinationPlaceholder: "Solana address (base58)",
     destinationHint: "SOL on the Solana network only. Other chains are not accepted.",
   },
   usdc_solana: {
-    id: "usdc_solana",
-    label: "USDC (Solana)",
-    destinationLabel: "Solana wallet address",
-    destinationPlaceholder: "Solana address (base58)",
+    enabled: true, minimumCents: 100, label: "USDC (Solana)",
+    destinationLabel: "Solana wallet address", destinationPlaceholder: "Solana address (base58)",
     destinationHint: "USDC on the Solana network only. The network must match.",
   },
-};
+  usdc_bep20: {
+    enabled: true, minimumCents: 100, label: "USDC (BEP20)",
+    destinationLabel: "BNB Smart Chain wallet address", destinationPlaceholder: "0x… (BNB Smart Chain / BEP20)",
+    destinationHint: "USDC on BNB Smart Chain (BEP20) only. Do not use Solana or another EVM network for this payout.",
+  },
+  skrill: {
+    enabled: false, minimumCents: null, label: "Skrill",
+    destinationLabel: "Skrill email", destinationPlaceholder: "you@example.com",
+    destinationHint: "Historical withdrawals only. New Skrill requests are disabled.",
+  },
+} as const;
 
+export type WithdrawalMethod = keyof typeof PAYOUT_RULES;
+export type ActiveWithdrawalMethod = {
+  [M in WithdrawalMethod]: typeof PAYOUT_RULES[M]["enabled"] extends true ? M : never
+}[WithdrawalMethod];
+
+export function isKnownWithdrawalMethod(value: unknown): value is WithdrawalMethod {
+  return typeof value === "string" && Object.hasOwn(PAYOUT_RULES, value);
+}
 export function isActiveWithdrawalMethod(value: unknown): value is ActiveWithdrawalMethod {
-  return (
-    typeof value === "string" &&
-    (ACTIVE_WITHDRAWAL_METHODS as readonly string[]).includes(value)
-  );
+  return isKnownWithdrawalMethod(value) && PAYOUT_RULES[value].enabled;
+}
+export const ACTIVE_WITHDRAWAL_METHODS = Object.keys(PAYOUT_RULES).filter(isActiveWithdrawalMethod);
+/** Display/entry threshold only. Never use this to authorize a specific method. */
+export const LOWEST_WITHDRAWAL_CENTS = Math.min(...ACTIVE_WITHDRAWAL_METHODS.map(m => PAYOUT_RULES[m].minimumCents));
+export const WITHDRAWAL_METHOD_META = PAYOUT_RULES;
+export const PLANNED_WITHDRAWAL_METHODS = ["card"] as const;
+export function getWithdrawalMinimumCents(method: ActiveWithdrawalMethod): number {
+  return PAYOUT_RULES[method].minimumCents;
 }
 
 /** Basic email shape for PayPal/Skrill destinations. Server re-validates. */
@@ -101,13 +91,27 @@ export function isValidSolanaAddress(value: unknown): boolean {
   return BASE58.test(value.trim());
 }
 
-export function isValidDestination(method: ActiveWithdrawalMethod, value: unknown): boolean {
+/** Address shape only; payout operators must verify destinations before sending. */
+export function isValidLitecoinAddress(value: unknown): boolean {
+  if (typeof value !== "string") return false;
+  const v = value.trim();
+  return /^[LM][1-9A-HJ-NP-Za-km-z]{25,34}$/.test(v)
+    || (/^ltc1[qp][023456789acdefghjklmnpqrstuvwxyz]{38,86}$/.test(v));
+}
+export function isValidBep20Address(value: unknown): boolean {
+  return typeof value === "string" && /^0x[0-9a-fA-F]{40}$/.test(value.trim());
+}
+export function isValidDestination(method: unknown, value: unknown): boolean {
+  if (!isActiveWithdrawalMethod(method)) return false;
   switch (method) {
     case "paypal":
-    case "skrill":
       return isValidEmailDestination(value);
     case "revolut":
       return isValidRevolutDestination(value);
+    case "ltc":
+      return isValidLitecoinAddress(value);
+    case "usdc_bep20":
+      return isValidBep20Address(value);
     case "sol":
     case "usdc_solana":
       return isValidSolanaAddress(value);
@@ -118,7 +122,7 @@ export function isValidDestination(method: ActiveWithdrawalMethod, value: unknow
 
 export function normalizeDestination(method: ActiveWithdrawalMethod, value: string): string {
   const v = value.trim();
-  return method === "paypal" || method === "skrill" ? v.toLowerCase() : v;
+  return method === "paypal" ? v.toLowerCase() : v;
 }
 
 /** Strict display-string → integer cents ("5", "5.00", "5.5"). Rejects floats-as-text. */
@@ -130,9 +134,11 @@ export function parseAmountCents(input: string): number | null {
   return Number.isSafeInteger(cents) ? cents : null;
 }
 
-/** Server-side amount gate: integer, ≥ $0.10. Balance check happens atomically in the RPC. */
-export function isWithdrawableAmount(cents: unknown): cents is number {
-  return typeof cents === "number" && Number.isInteger(cents) && cents >= MINIMUM_WITHDRAWAL_CENTS;
+/** Method-aware server gate. The RPC still checks the minimum and balance atomically. */
+export function isWithdrawableAmount(method: unknown, cents: unknown): cents is number {
+  return isActiveWithdrawalMethod(method) && typeof cents === "number"
+    && Number.isSafeInteger(cents) && cents <= 2147483647
+    && cents >= getWithdrawalMinimumCents(method);
 }
 
 export type WithdrawalRequestError =
@@ -146,7 +152,7 @@ export type WithdrawalRequestError =
   | "invalid_request";
 
 /** Masked for UI/logs. Full destinations live only in the DB (service-role). */
-export function maskDestination(method: ActiveWithdrawalMethod, destination: string): string {
+export function maskDestination(method: WithdrawalMethod, destination: string): string {
   const v = destination.trim();
   if (method === "paypal" || method === "skrill") {
     const at = v.indexOf("@");
@@ -159,7 +165,7 @@ export function maskDestination(method: ActiveWithdrawalMethod, destination: str
     if (handle.length < 3) return "@•••";
     return `@${handle.slice(0, 2)}***${handle.slice(-2)}`;
   }
-  // sol / usdc_solana
+  // Crypto destinations
   if (v.length < 8) return "••••";
   return `${v.slice(0, 4)}…${v.slice(-4)}`;
 }

@@ -56,8 +56,8 @@ npm run build
 
 ## 5b. Manual withdrawals (live, operator-reviewed)
 
-- Minimum $0.10 (10 cents, `MINIMUM_WITHDRAWAL_CENTS` in `lib/withdrawals.ts`,
-  mirrored by the `request_withdrawal()` RPC).
+- Method-specific minima: Revolut / Revtag and PayPal **10 cents ($0.10)**; Litecoin, SOL, USDC (Solana) and USDC (BEP20 / BNB Smart Chain) **100 cents ($1.00)**.
+  `PAYOUT_RULES` in `lib/withdrawals.ts` supplies server and UI values; migration 007 independently enforces the allowlist/minima in the authoritative RPC. Executable PostgreSQL tests check parity.
 - `POST /api/withdrawals/request` (session auth, rate-limited): validates
   integer cents, method allowlist, and destination, then calls the atomic RPC.
   Funds are reserved immediately as a pending negative withdrawal ledger row,
@@ -66,11 +66,12 @@ npm run build
 - Rejection refunds exactly once via an immutable zero-amount reversal marker;
   approval confirms the hold. Both admin actions are idempotent
   (`POST /api/admin/withdrawals/[id]/approve|reject`, deny-by-default 404).
-- Active methods: PayPal, Skrill, Revolut (@username), SOL, USDC (Solana).
+- Active methods: Revolut (@username), PayPal, Litecoin (LTC), SOL, USDC (Solana), USDC (BEP20 / BNB Smart Chain).
+  Skrill is disabled for new requests; historical records still display and can be settled by admins.
   Card is shown as Soon — no card data is ever collected or stored.
 - Destinations are masked in UI/logs; full values live only in
-  `withdrawal_requests` (service-role/RLS-protected). No migration beyond
-  `005_withdrawals.sql` is required.
+  `withdrawal_requests` (service-role/RLS-protected). Apply migrations through
+  `007_method_specific_withdrawals.sql` before deploying this version.
 
 ## 6. How the mock provider works
 
@@ -510,6 +511,8 @@ HMAC payload, then implement verified crediting + reversals.
 - [ ] Support email / domain set (`support@freearn.online` — configured).
 - [ ] No secrets with `NEXT_PUBLIC_` prefix except anon key + URL.
 
-### Final withdrawal policy (migration 006)
+### Withdrawal policy migrations (006 → 007)
 
-Apply `database/migrations/006_ten_cent_withdrawals.sql` after 005 before deploying this frontend. The authoritative RPC accepts amounts from 10 cents and rejects new requests while any requested/reviewing/approved/processing request remains active. Same-key retries return the original request; a key belonging to another user is rejected. Existing requests and settlement accounting are retained.
+Apply migrations in order through `007_method_specific_withdrawals.sql` before deploying this version. Migration 006 introduced the previous ten-cent policy. Migration 007 supersedes it with method-specific minimums and disables new Skrill requests. Apply `database/migrations/007_method_specific_withdrawals.sql` after 006. The authoritative RPC rejects disabled/unknown methods, enforces 10 cents for Revolut/PayPal and 100 cents for all four crypto methods, and rejects new requests while any requested/reviewing/approved/processing request remains active. Same-key retries return the original request; a key belonging to another user is rejected. Existing requests and settlement accounting are retained.
+
+All tests use an isolated PostgreSQL/PGlite instance; running them never changes a live Supabase database. Neither migration changes historical rows.

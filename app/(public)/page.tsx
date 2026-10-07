@@ -4,15 +4,16 @@ import { Icon, type IconName } from '@/components/fx/icon';
 import { TallyMark } from '@/components/fx/tally';
 import { MomentArt } from '@/components/fx/moment-art';
 import { HomepageMotion, PayoutSlider, PlannedLevels } from '@/components/homepage/experience';
-import { MINIMUM_WITHDRAWAL_CENTS } from '@/lib/withdrawals';
+import { PAYOUT_RULES } from '@/lib/withdrawals';
 import { centsToUsd as money } from '@/lib/money';
 import styles from './homepage.module.css';
 
 export const metadata: Metadata = {
   title: 'Freearn — Little moments. Real possibilities.',
-  description: `Discover surveys and offers, a ${money(MINIMUM_WITHDRAWAL_CENTS)} withdrawal minimum, and fast manual payouts with Revolut and Skrill.`,
+  description: `Discover surveys and offers. Cash out from just ${money(PAYOUT_RULES.revolut.minimumCents)} with Revolut or PayPal. Crypto withdrawals from ${money(PAYOUT_RULES.sol.minimumCents)}.`,
 };
-const minimum = money(MINIMUM_WITHDRAWAL_CENTS);
+const minimum = money(PAYOUT_RULES.revolut.minimumCents);
+const cryptoMinimum = money(PAYOUT_RULES.sol.minimumCents);
 const steps: { title: string; detail: string; icon: IconName; label: string }[] = [
   {
     title: 'Make yourself at home.',
@@ -31,28 +32,28 @@ const steps: { title: string; detail: string; icon: IconName; label: string }[] 
     title: 'Start small. Cash out.',
     label: `FROM ${minimum}`,
     detail:
-      'Use your confirmed, available balance to request a withdrawal. Pending rewards stay separate.',
+      `Revolut or PayPal from ${minimum}; crypto from ${cryptoMinimum}. Only confirmed, available rewards can be withdrawn.`,
     icon: 'wallet',
   },
   {
     title: 'A human checks. You get paid.',
     label: 'REVIEW, THEN PAYOUT',
-    detail: 'Requests are manually reviewed. Revolut and Skrill are the fastest payout options.',
+    detail: 'Requests are manually reviewed. Revolut is our fastest payout option.',
     icon: 'check',
   },
 ];
 const faqs = [
   [
     'What is the minimum withdrawal?',
-    `Cash out from just ${minimum} — ten cents in USD. Only confirmed, available rewards can be withdrawn. One active withdrawal request per account is allowed at a time.`,
+    `Cash out from just ${minimum} with Revolut or PayPal. Crypto withdrawals from ${cryptoMinimum}. Only confirmed, available rewards can be withdrawn. One active withdrawal request per account is allowed at a time.`,
   ],
   [
     'How fast are payouts processed?',
-    'Revolut and Skrill are our fastest payout options. Most requests are reviewed within approximately 1 hour; exceptional cases may take up to 3 days. These are estimates, not guaranteed payout times.',
+    'Revolut is our fastest payout option. Most requests are reviewed within approximately 1 hour; exceptional cases may take up to 3 days. These are estimates, not guaranteed payout times.',
   ],
   [
     'Which payout methods can I choose?',
-    'Revolut / Revtag, Skrill, PayPal, SOL on Solana and USDC on Solana are supported. Revolut and Skrill are our fastest payout options. Card payouts are coming soon. Check your wallet for availability.',
+    'Revolut / Revtag, PayPal, Litecoin, SOL on Solana, USDC on Solana and USDC on BNB Smart Chain (BEP20) are supported. Skrill is available only for historical withdrawals. Revolut is our fastest payout option. Card payouts are coming soon. Check your wallet for availability.',
   ],
   [
     'Do I need to pay anything?',
@@ -135,11 +136,11 @@ export default function HomePage() {
               <div className={styles.heroBenefits}>
                 <span>
                   <Icon name="wallet" size={19} />
-                  <strong>Cash out from just {minimum}</strong>
+                  <strong>Cash out from just {minimum} with Revolut or PayPal.</strong>
                 </span>
                 <span>
                   <Icon name="clock" size={19} />
-                  Fast payouts with <strong>Revolut and Skrill</strong>
+                  Our fastest option: <strong>Revolut</strong>
                 </span>
               </div>
               <div className={styles.heroActions}>
@@ -149,7 +150,7 @@ export default function HomePage() {
                 </a>
               </div>
               <p className={styles.heroNote}>
-                Your pace. Your pick. Fast manual review before payout.
+                Crypto withdrawals from {cryptoMinimum}. Manual review before payout.
               </p>
             </div>
             <div className={styles.heroVisual}>
@@ -176,8 +177,8 @@ export default function HomePage() {
               <span>Less waiting.</span>
             </h2>
             <p>
-              Cash out from just {minimum}. Most Revolut and Skrill payouts are processed very
-              quickly, with a human check first.
+              Cash out from just {minimum} with Revolut or PayPal. Crypto withdrawals from {cryptoMinimum}.
+              Revolut is our fastest option, with a human check first.
             </p>
             <span className={styles.reviewTag}>
               <Icon name="check" size={16} /> Fast manual withdrawals
@@ -194,7 +195,7 @@ export default function HomePage() {
               <div>
                 <b>Revolut</b>
                 <span>+</span>
-                <b>Skrill</b>
+                <b>PayPal</b>
                 <span aria-hidden="true">↗</span>
               </div>
             </div>
@@ -323,9 +324,9 @@ export default function HomePage() {
               </h2>
             </div>
             <p>
-              Revolut and Skrill lead the way.
+              Revolut and PayPal. A small start.
               <br />
-              Our fastest options, with manual approval.
+              Revolut is our fastest option. Manual approval for every request.
             </p>
           </div>
           <div className={styles.paymentMethods}>
@@ -341,13 +342,13 @@ export default function HomePage() {
                 <Icon name="external" size={20} />
               </div>
             </article>
-            <article className={`${styles.paymentMethod} ${styles.skrill}`}>
-              <span className={styles.methodTag}>PRIMARY / FASTEST</span>
+            <article className={`${styles.paymentMethod} ${styles.paypal}`}>
+              <span className={styles.methodTag}>SMALL START</span>
               <div className={styles.paymentSymbol} aria-hidden="true">
-                S
+                P
               </div>
-              <h3>Skrill</h3>
-              <p>A quick way to take your rewards with you.</p>
+              <h3>PayPal</h3>
+              <p>Manual payments to your PayPal account.</p>
               <div>
                 <span>From {minimum}</span>
                 <Icon name="external" size={20} />
@@ -368,7 +369,7 @@ export default function HomePage() {
           </div>
           <p className={styles.disclaimer}>
             Availability depends on account and region. Check your wallet for supported methods.
-            PayPal, SOL on Solana and USDC on Solana are also supported. Most requests are reviewed within approximately 1 hour; exceptional cases may take up to 3 days. Timing is not guaranteed.
+            Crypto withdrawals from {cryptoMinimum}: Litecoin, SOL on Solana, USDC on Solana and USDC on BNB Smart Chain (BEP20). Most requests are reviewed within approximately 1 hour; exceptional cases may take up to 3 days. Timing is not guaranteed.
           </p>
         </section>
         <section

@@ -8,9 +8,9 @@ import { toFxTransaction, type FxTransaction } from "@/lib/fx";
 import type { WalletSummary } from "@/lib/wallet/ledger";
 import {
   ACTIVE_WITHDRAWAL_METHODS,
-  isActiveWithdrawalMethod,
+  maskDestination,
   isValidDestination,
-  MINIMUM_WITHDRAWAL_CENTS,
+  LOWEST_WITHDRAWAL_CENTS,
   parseAmountCents,
   WITHDRAWAL_METHOD_META,
   type ActiveWithdrawalMethod,
@@ -32,10 +32,9 @@ export interface WithdrawalListItem {
 }
 
 const ERROR_COPY: Record<string, string> = {
-  invalid_amount: `Enter an amount like ${(MINIMUM_WITHDRAWAL_CENTS / 100).toFixed(2)}.`,
+  invalid_amount: "Enter a positive USD amount with up to two decimal places.",
   pending_withdrawal: "You already have a withdrawal under review. Wait until it is paid or rejected.",
   invalid_request: "This request could not be verified. Refresh your wallet and try again.",
-  below_minimum: `The minimum withdrawal is ${centsToUsd(MINIMUM_WITHDRAWAL_CENTS)}.`,
   insufficient_balance: "That amount is more than your available balance.",
   invalid_method: "Choose an available payout method.",
   invalid_destination: "Check the destination — it doesn't look valid for this method.",
@@ -73,6 +72,8 @@ function WithdrawalForm({ availableCents, onDone }: { availableCents: number; on
   );
 
   const meta = WITHDRAWAL_METHOD_META[method];
+  const minimumCents = meta.minimumCents;
+  const minimumError = `${meta.label} minimum is ${centsToUsd(minimumCents)}.`;
   const cents = useMemo(() => parseAmountCents(amount), [amount]);
   const destOk = useMemo(
     () => isValidDestination(method, destination),
@@ -83,7 +84,7 @@ function WithdrawalForm({ availableCents, onDone }: { availableCents: number; on
     e.preventDefault();
     setError(null);
     if (cents === null || cents <= 0) return setError(ERROR_COPY.invalid_amount);
-    if (cents < MINIMUM_WITHDRAWAL_CENTS) return setError(ERROR_COPY.below_minimum);
+    if (cents < minimumCents) return setError(minimumError);
     if (cents > availableCents) return setError(ERROR_COPY.insufficient_balance);
     if (!destOk) return setError(ERROR_COPY.invalid_destination);
     setStage("review");
@@ -107,7 +108,7 @@ function WithdrawalForm({ availableCents, onDone }: { availableCents: number; on
       });
       const data = (await res.json().catch(() => ({}))) as { error?: string };
       if (!res.ok) {
-        setError(ERROR_COPY[data.error ?? "unavailable"] ?? ERROR_COPY.unavailable);
+        setError(data.error === "below_minimum" ? minimumError : ERROR_COPY[data.error ?? "unavailable"] ?? ERROR_COPY.unavailable);
         setStage("edit");
         return;
       }
@@ -139,7 +140,7 @@ function WithdrawalForm({ availableCents, onDone }: { availableCents: number; on
           </div>
           <div>
             <dt>Destination</dt>
-            <dd className="mono">{maskPreview(method, destination)}</dd>
+            <dd className="mono">{maskDestination(method, destination)}</dd>
           </div>
         </dl>
         <p className="muted small">
@@ -183,7 +184,7 @@ function WithdrawalForm({ availableCents, onDone }: { availableCents: number; on
             id="wd-amount"
             inputMode="decimal"
             autoComplete="off"
-            placeholder={(MINIMUM_WITHDRAWAL_CENTS / 100).toFixed(2)}
+            placeholder={(minimumCents / 100).toFixed(2)}
             value={amount}
             onChange={(e) => setAmount(e.target.value)}
             aria-describedby="wd-amount-help"
@@ -197,7 +198,7 @@ function WithdrawalForm({ availableCents, onDone }: { availableCents: number; on
           </Button>
         </div>
         <p className="muted small" id="wd-amount-help">
-          Minimum {centsToUsd(MINIMUM_WITHDRAWAL_CENTS)}. Available: {centsToUsd(availableCents)}.
+          {meta.label} — Minimum {centsToUsd(minimumCents)}. Available: {centsToUsd(availableCents)}.
         </p>
       </div>
       <div className="field">
@@ -214,13 +215,15 @@ function WithdrawalForm({ availableCents, onDone }: { availableCents: number; on
               onClick={() => {
                 setMethod(m);
                 setDestination("");
+                setError(cents !== null && cents > 0 && cents < WITHDRAWAL_METHOD_META[m].minimumCents
+                  ? `${WITHDRAWAL_METHOD_META[m].label} minimum is ${centsToUsd(WITHDRAWAL_METHOD_META[m].minimumCents)}.` : null);
               }}
             >
               {WITHDRAWAL_METHOD_META[m].label}
             </button>
           ))}
           <button type="button" disabled title="No card payout provider integrated yet">
-            Card — Soon
+            Card — Coming soon
           </button>
         </div>
       </div>
@@ -251,23 +254,6 @@ function WithdrawalForm({ availableCents, onDone }: { availableCents: number; on
   );
 }
 
-/** Client-side masked preview (mirrors server maskDestination for the confirm step). */
-function maskPreview(method: ActiveWithdrawalMethod, destination: string): string {
-  const v = destination.trim();
-  if (method === "paypal" || method === "skrill") {
-    const at = v.indexOf("@");
-    if (at <= 0) return "••••";
-    return `${v.slice(0, 1)}***@${v.slice(at + 1) || "•••"}`;
-  }
-  if (method === "revolut") {
-    const handle = v.startsWith("@") ? v.slice(1) : v;
-    if (handle.length < 3) return "@•••";
-    return `@${handle.slice(0, 2)}***${handle.slice(-2)}`;
-  }
-  if (v.length < 8) return "••••";
-  return `${v.slice(0, 4)}…${v.slice(-4)}`;
-}
-
 export function WalletView({
   txns,
   summary,
@@ -288,8 +274,8 @@ export function WalletView({
 
   const { availableCents, pendingCents, lifetimeCents } = summary;
   const hasActiveWithdrawal = withdrawals.some((w) => ["requested", "reviewing", "approved", "processing"].includes(w.status));
-  const canWithdraw = availableCents >= MINIMUM_WITHDRAWAL_CENTS && !hasActiveWithdrawal && !justRequested && !withdrawalsUnavailable;
-  const progress = Math.min(100, (availableCents / MINIMUM_WITHDRAWAL_CENTS) * 100);
+  const canWithdraw = availableCents >= LOWEST_WITHDRAWAL_CENTS && !hasActiveWithdrawal && !justRequested && !withdrawalsUnavailable;
+  const progress = Math.min(100, (availableCents / LOWEST_WITHDRAWAL_CENTS) * 100);
 
   return (
     <>
@@ -304,9 +290,9 @@ export function WalletView({
             {showForm ? "Close withdrawal form" : "Withdraw rewards"}
           </Button>
         ) : (
-          <Button disabled title={`Withdrawals open at ${centsToUsd(MINIMUM_WITHDRAWAL_CENTS)}`}>
+          <Button disabled title={`Withdrawals open at ${centsToUsd(LOWEST_WITHDRAWAL_CENTS)}`}>
             <Icon name="wallet" size={18} />
-            {withdrawalsUnavailable ? "Withdrawals unavailable" : hasActiveWithdrawal || justRequested ? "Withdrawal under review" : `Withdraw from ${centsToUsd(MINIMUM_WITHDRAWAL_CENTS)}`}
+            {withdrawalsUnavailable ? "Withdrawals unavailable" : hasActiveWithdrawal || justRequested ? "Withdrawal under review" : `Withdraw from ${centsToUsd(LOWEST_WITHDRAWAL_CENTS)}`}
           </Button>
         )}
       </SectionHeading>
@@ -352,14 +338,14 @@ export function WalletView({
       </div>
       {withdrawalsUnavailable && <div className="notice notice-warning" role="alert">Withdrawal history could not be loaded. Refresh your wallet before requesting a withdrawal.</div>}
       {hasActiveWithdrawal && <div className="notice" role="status">One withdrawal at a time. Your existing request must be paid or rejected before you can request another.</div>}
-      {availableCents < MINIMUM_WITHDRAWAL_CENTS && (
+      {availableCents < LOWEST_WITHDRAWAL_CENTS && (
         <section className="surface threshold-panel" aria-label="Withdrawal threshold">
           <div>
             <strong>
-              {centsToUsd(availableCents)} / {centsToUsd(MINIMUM_WITHDRAWAL_CENTS)}
+              {centsToUsd(availableCents)} / {centsToUsd(LOWEST_WITHDRAWAL_CENTS)}
             </strong>
             <p className="muted small">
-              Withdrawals open at {centsToUsd(MINIMUM_WITHDRAWAL_CENTS)}. Every little win counts
+              Revolut or PayPal withdrawals open at {centsToUsd(LOWEST_WITHDRAWAL_CENTS)}. Every little win counts
               toward it.
             </p>
           </div>
@@ -381,7 +367,7 @@ export function WalletView({
         <p>
           Pending rewards can be confirmed or reversed after review. Your available balance
           reflects confirmed ledger activity, including adjustments and withdrawals.{" "}
-          {siteConfig.withdrawalNote} Most requests are reviewed within approximately 1 hour; exceptional cases
+          Revolut and PayPal from {centsToUsd(WITHDRAWAL_METHOD_META.paypal.minimumCents)}; crypto from {centsToUsd(WITHDRAWAL_METHOD_META.sol.minimumCents)}. {siteConfig.withdrawalNote} Most requests are reviewed within approximately 1 hour; exceptional cases
           may take up to 3 days. Timing is estimated, not guaranteed.
         </p>
       </div>
@@ -460,7 +446,7 @@ export function WalletView({
           <EmptyState
             icon="wallet"
             title="No withdrawals yet."
-            description={`When you request a withdrawal from ${centsToUsd(MINIMUM_WITHDRAWAL_CENTS)}, it will appear here with its review status.`}
+            description="Your withdrawal requests will appear here with their review status."
           />
         )}
       </section>

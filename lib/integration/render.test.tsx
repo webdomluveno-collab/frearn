@@ -29,13 +29,13 @@ describe("production screens render their actual ledger inputs",()=>{
   });
   it("wallet form and long Solana address fit the actual production components",()=>{
     mocks.path="/dashboard/wallet";
-    const view=render(shell(<WalletView txns={[]} summary={summary} withdrawals={[]}/>));
+    const view=render(shell(<WalletView txns={[]} summary={{...summary,availableCents:100,lifetimeCents:100}} withdrawals={[]}/>));
     fireEvent.click(screen.getByRole("button",{name:"Withdraw rewards"}));fireEvent.click(screen.getByRole("button",{name:"USDC (Solana)"}));
     const address="7".repeat(44);fireEvent.change(screen.getByLabelText("Solana wallet address"),{target:{value:address}});
     expect(screen.getByLabelText("Solana wallet address")).toHaveValue(address);
     capture("wallet-form",view.container.innerHTML);
-    fireEvent.change(screen.getByLabelText("Amount (USD)"),{target:{value:"0.10"}});fireEvent.submit(screen.getByRole("form",{name:"Request a withdrawal"}));
-    expect(screen.getByRole("button",{name:"Confirm $0.10 withdrawal"})).toBeEnabled();capture("wallet-review",view.container.innerHTML);
+    fireEvent.change(screen.getByLabelText("Amount (USD)"),{target:{value:"1.00"}});fireEvent.submit(screen.getByRole("form",{name:"Request a withdrawal"}));
+    expect(screen.getByRole("button",{name:"Confirm $1.00 withdrawal"})).toBeEnabled();capture("wallet-review",view.container.innerHTML);
   });
   it("pending history renders masked long destinations and review status",()=>{
     mocks.path="/dashboard/wallet";

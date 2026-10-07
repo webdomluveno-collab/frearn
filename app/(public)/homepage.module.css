@@ -211,6 +211,12 @@
 }
 .heroBenefits > span:first-child {
   font-size: 17px;
+  flex-wrap: nowrap;
+  align-items: flex-start;
+}
+.heroBenefits > span:first-child svg {
+  flex-shrink: 0;
+  margin-top: 0.2em;
 }
 .heroActions {
   display: flex;
@@ -728,7 +734,7 @@
 .revolut {
   background: #d7efe7;
 }
-.skrill {
+.paypal {
   background: #f3dce8;
 }
 .card {

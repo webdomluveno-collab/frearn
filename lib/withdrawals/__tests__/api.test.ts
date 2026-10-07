@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { METHOD_CASES } from "./cases";
 
 vi.mock("@/lib/auth/server", () => ({
   getSessionUser: vi.fn(),
@@ -78,8 +79,8 @@ describe("POST /api/withdrawals/request", () => {
     const res = await requestPost(
       post({
         amountCents: 10,
-        method: "sol",
-        destination: "7xKXtg2CW87d97TXJSDpbD5jBkheTqA83TZRuQ",
+        method: "revolut",
+        destination: "@someone",
         requestKey: UID,
       })
     );
@@ -124,9 +125,9 @@ describe("POST /api/withdrawals/request", () => {
     expect(res.status).toBe(400);
   });
 
-  it("10/11. PayPal and Skrill emails accepted", async () => {
+  it("10. PayPal email accepted", async () => {
     mockedSession.mockResolvedValue({ id: `test-user-${++uidCounter}`, email: "u@x.co" });
-    for (const method of ["paypal", "skrill"]) {
+    for (const method of ["paypal"]) {
       mockedRequest.mockResolvedValue({ ok: true, request: row({ method }), duplicate: false });
       const res = await requestPost(post({ amountCents: 500, method, destination: "Pay@Example.COM" }));
       expect(res.status).toBe(200);
@@ -237,5 +238,28 @@ describe("admin withdrawal actions", () => {
     mockedSettle.mockResolvedValue({ ok: true, requestId: "req-1", newStatus: "rejected", already: true });
     const again = await rejectPost(new Request("https://x/", { method: "POST" }), ctx);
     expect(((await again.json()) as { already: boolean }).already).toBe(true);
+  });
+});
+
+describe("API method-specific boundaries", () => {
+  it.each(METHOD_CASES)("$method below $minimum cents never reaches RPC", async ({method,minimum,destination}) => {
+    mockedSession.mockResolvedValue({id:`test-user-${++uidCounter}`,email:"u@x.co"});
+    const res=await requestPost(post({method,amountCents:minimum-1,destination}));
+    expect(res.status).toBe(400);
+    expect(await res.json()).toEqual({error:"below_minimum",method,minimumCents:minimum});
+    expect(mockedRequest).not.toHaveBeenCalled();
+  });
+  it.each(METHOD_CASES)("$method exactly $minimum cents reaches atomic RPC", async ({method,minimum,destination}) => {
+    const id=`test-user-${++uidCounter}`;mockedSession.mockResolvedValue({id,email:"u@x.co"});
+    mockedRequest.mockResolvedValue({ok:true,request:row({method,amountCents:minimum}),duplicate:false});
+    const res=await requestPost(post({method,amountCents:minimum,destination,requestKey:UID,userId:"spoofed"}));
+    expect(res.status).toBe(200);
+    expect(mockedRequest).toHaveBeenCalledWith(expect.objectContaining({userId:id,method,amountCents:minimum,destination}));
+  });
+  it.each(["skrill","unknown","card"])("%s cannot create a new request", async method => {
+    mockedSession.mockResolvedValue({id:`test-user-${++uidCounter}`,email:"u@x.co"});
+    const res=await requestPost(post({method,amountCents:100,destination:"old@example.com"}));
+    expect(res.status).toBe(400);expect(await res.json()).toEqual({error:"invalid_method"});
+    expect(mockedRequest).not.toHaveBeenCalled();
   });
 });

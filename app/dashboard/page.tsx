@@ -3,6 +3,7 @@ import { getSessionUser } from "@/lib/auth/server";
 import { getMyLedger } from "@/lib/db/wallet";
 import { summarizeLedger } from "@/lib/wallet/ledger";
 import { centsToUsd } from "@/lib/money";
+import { PAYOUT_RULES } from "@/lib/withdrawals";
 import { siteConfig } from "@/config/site";
 import { displayName, toFxTransaction, weekBuckets } from "@/lib/fx";
 import { getSurveyWall } from "@/lib/providers";
@@ -56,10 +57,11 @@ export default async function DashboardOverview() {
         </div>
         <div>
           <ButtonLink href="/dashboard/wallet" variant="secondary" className="full-width">
-            {s.availableCents < siteConfig.minimumWithdrawalCents
-              ? `Withdraw from ${centsToUsd(siteConfig.minimumWithdrawalCents)}`
+            {s.availableCents < siteConfig.withdrawalsFromCents
+              ? `Withdraw from ${centsToUsd(siteConfig.withdrawalsFromCents)}`
               : "Withdraw rewards"}
           </ButtonLink>
+          <small>Revolut / PayPal {centsToUsd(PAYOUT_RULES.revolut.minimumCents)} · Crypto {centsToUsd(PAYOUT_RULES.sol.minimumCents)}</small>
           <Link href="/dashboard/wallet" className="money-history-link">
             See wallet &amp; history ↗
           </Link>

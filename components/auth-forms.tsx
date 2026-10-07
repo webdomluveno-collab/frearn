@@ -8,7 +8,7 @@ import { Brand } from "@/components/fx/brand";
 import { Icon } from "@/components/fx/icon";
 import { MomentArt } from "@/components/fx/moment-art";
 import styles from "./auth-forms.module.css";
-import { MINIMUM_WITHDRAWAL_CENTS } from "@/lib/withdrawals";
+import { PAYOUT_RULES } from "@/lib/withdrawals";
 import { centsToUsd } from "@/lib/money";
 import { getSupabaseBrowser, isSupabaseConfigured } from "@/lib/auth/client";
 import { siteConfig } from "@/config/site";
@@ -27,8 +27,8 @@ function AuthShell({ title, sub, children }: { title: string; sub: string; child
           <h2>A little time.<br />A little <span>more.</span></h2>
           <p>Discover surveys and offers. Choose what fits your day.</p>
           <div className={styles.benefits}>
-            <span><Icon name="wallet" size={17} />Cash out from just {centsToUsd(MINIMUM_WITHDRAWAL_CENTS)}</span>
-            <span><Icon name="check" size={17} />Fast payouts with Revolut &amp; Skrill</span>
+            <span><Icon name="wallet" size={17} />Cash out from just {centsToUsd(PAYOUT_RULES.revolut.minimumCents)} with Revolut or PayPal.</span>
+            <span><Icon name="check" size={17} />Crypto withdrawals from {centsToUsd(PAYOUT_RULES.sol.minimumCents)}</span>
             <small>Manual review comes first. Payout timing can vary.</small>
           </div>
           <MomentArt compact />

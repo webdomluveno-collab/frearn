@@ -1,5 +1,5 @@
 import { Icon } from './icon';
-import { MINIMUM_WITHDRAWAL_CENTS } from '@/lib/withdrawals';
+import { PAYOUT_RULES } from '@/lib/withdrawals';
 import { TallyMark } from './tally';
 import styles from './moment-art.module.css';
 
@@ -30,10 +30,10 @@ export function MomentArt({ compact = false }: { compact?: boolean }) {
         <span>SURVEYS / OFFERS / POSSIBILITIES</span>
       </div>
       <div className={styles.coin}>
-        <span>CASH OUT FROM</span>
+        <span>REVOLUT / PAYPAL — FROM</span>
         <strong>
           <small>$</small>
-          {(MINIMUM_WITHDRAWAL_CENTS / 100).toFixed(2)}
+          {(PAYOUT_RULES.revolut.minimumCents / 100).toFixed(2)}
         </strong>
         <TallyMark size={36} />
       </div>
@@ -57,7 +57,7 @@ export function MomentArt({ compact = false }: { compact?: boolean }) {
       <div className={styles.method}>
         <Icon name="wallet" size={20} />
         <span>
-          Revolut <b>+</b> Skrill
+          Revolut <b>+</b> PayPal
         </span>
         <span>↗</span>
       </div>

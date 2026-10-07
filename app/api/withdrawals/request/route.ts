@@ -4,6 +4,7 @@ import { getSessionUser, isSupabaseConfigured } from "@/lib/auth/server";
 import { rateLimit } from "@/lib/rate-limit";
 import { requestWithdrawal } from "@/lib/db/withdrawals";
 import {
+  getWithdrawalMinimumCents,
   isActiveWithdrawalMethod,
   isValidDestination,
   isWithdrawableAmount,
@@ -41,16 +42,15 @@ export async function POST(req: Request) {
   const b = (body ?? {}) as Record<string, unknown>;
   const { amountCents, method, destination, requestKey } = b;
 
-  if (!isWithdrawableAmount(amountCents)) {
-    const code =
-      typeof amountCents === "number" && Number.isInteger(amountCents) && amountCents > 0
-        ? "below_minimum"
-        : "invalid_amount";
-    return NextResponse.json({ error: code }, { status: 400 });
-  }
   if (!isActiveWithdrawalMethod(method)) {
-    // Planned methods (e.g. card) and unknown methods are not submittable.
     return NextResponse.json({ error: "invalid_method" }, { status: 400 });
+  }
+  if (!isWithdrawableAmount(method, amountCents)) {
+    const below = typeof amountCents === "number" && Number.isSafeInteger(amountCents)
+      && amountCents > 0 && amountCents < getWithdrawalMinimumCents(method);
+    return NextResponse.json(below
+      ? { error: "below_minimum", method, minimumCents: getWithdrawalMinimumCents(method) }
+      : { error: "invalid_amount" }, { status: 400 });
   }
   if (typeof destination !== "string" || !isValidDestination(method, destination)) {
     return NextResponse.json({ error: "invalid_destination" }, { status: 400 });

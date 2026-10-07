@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
+import { isKnownWithdrawalMethod, WITHDRAWAL_METHOD_META } from "@/lib/withdrawals";
 import { centsToUsd } from "@/lib/money";
 
 export interface AdminWithdrawalRow {
@@ -78,7 +79,7 @@ export function AdminWithdrawalActions({ rows }: { rows: AdminWithdrawalRow[] })
                 <td className="p-3">{new Date(r.createdAt).toLocaleString("en-US")}</td>
                 <td className="p-3 font-mono text-xs">{r.userId.slice(0, 8)}…</td>
                 <td className="p-3 text-right">{centsToUsd(r.amountCents)}</td>
-                <td className="p-3">{r.method}</td>
+                <td className="p-3">{isKnownWithdrawalMethod(r.method) ? WITHDRAWAL_METHOD_META[r.method].label : r.method}</td>
                 <td className="p-3 font-mono text-xs">{r.destination}</td>
                 <td className="p-3 font-mono text-xs">{r.status}</td>
                 <td className="p-3 text-right">

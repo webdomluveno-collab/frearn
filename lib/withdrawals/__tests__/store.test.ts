@@ -7,7 +7,7 @@ vi.mock("@/lib/auth/server", () => ({
 }));
 
 import { getSupabaseAdmin } from "@/lib/auth/server";
-import { listMyWithdrawals } from "@/lib/db/withdrawals";
+import { listMyWithdrawals, listPendingWithdrawals } from "@/lib/db/withdrawals";
 
 const UID = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee";
 const OTHER = "bbbbbbbb-cccc-dddd-eeee-ffffffffffff";
@@ -17,7 +17,7 @@ function fakeClient(rows: Record<string, unknown>[]) {
   const calls: Array<{ op: string; args: unknown[] }> = [];
   const chain: Record<string, unknown> = {};
   const terminal = () =>
-    Promise.resolve({ data: rows.filter(row => calls.filter(c => c.op === "eq").every(c => row[c.args[0] as string] === c.args[1])), error: null });
+    Promise.resolve({ data: rows.filter(row => calls.filter(c => c.op === "eq").every(c => row[c.args[0] as string] === c.args[1]) && calls.filter(c=>c.op === "in").every(c=>(c.args[1] as string[]).includes(row[c.args[0] as string] as string))), error: null });
   chain.select = (...args: unknown[]) => {
     calls.push({ op: "select", args });
     return chain;
@@ -26,6 +26,7 @@ function fakeClient(rows: Record<string, unknown>[]) {
     calls.push({ op: "eq", args });
     return chain;
   };
+  chain.in = (...args: unknown[]) => { calls.push({op:"in",args}); return chain; };
   chain.order = (...args: unknown[]) => {
     calls.push({ op: "order", args });
     return chain;
@@ -122,5 +123,17 @@ describe("migration 005 atomicity guarantees (SQL review pins)", () => {
   it("SECURITY DEFINER functions keep a fixed safe search_path", () => {
     expect(sql.match(/^security definer$/gim)?.length).toBe(2);
     expect(sql.match(/^set search_path = public$/gim)?.length).toBe(2);
+  });
+});
+
+describe("historical Skrill store compatibility", () => {
+  const oldRow = {id:"old-skrill",user_id:UID,amount_cents:10,method:"skrill",destination:"legacy@example.com",status:"requested",created_at:"2026-01-01T00:00:00Z",ledger_transaction_id:"old-hold"};
+  it("own history retains retired method records", async () => {
+    vi.mocked(getSupabaseAdmin).mockReturnValue(fakeClient([oldRow]) as never);
+    expect(await listMyWithdrawals(UID)).toEqual([expect.objectContaining({method:"skrill",amountCents:10,destination:"legacy@example.com"})]);
+  });
+  it("admin pending queue retains active historical Skrill requests", async () => {
+    vi.mocked(getSupabaseAdmin).mockReturnValue(fakeClient([oldRow,{...oldRow,id:"paid",status:"paid"}]) as never);
+    expect(await listPendingWithdrawals()).toEqual([expect.objectContaining({id:"old-skrill",method:"skrill",status:"requested"})]);
   });
 });

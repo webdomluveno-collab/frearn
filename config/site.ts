@@ -1,4 +1,4 @@
-import { MINIMUM_WITHDRAWAL_CENTS } from "@/lib/withdrawals";
+import { ACTIVE_WITHDRAWAL_METHODS, LOWEST_WITHDRAWAL_CENTS } from "@/lib/withdrawals";
 
 /**
  * CENTRAL SITE CONFIGURATION
@@ -39,12 +39,12 @@ export const siteConfig = {
   waitlistEnabled: true,
 
   // -- Wallet / withdrawals --
-  minimumWithdrawalCents: MINIMUM_WITHDRAWAL_CENTS,
+  withdrawalsFromCents: LOWEST_WITHDRAWAL_CENTS,
   currency: "USD" as const,
   // Only methods listed in `liveWithdrawalMethods` are submittable.
   // Card stays planned: no card payout provider is integrated (never collect card data).
   futureWithdrawalMethods: ["Card"] as const,
-  liveWithdrawalMethods: ["paypal", "skrill", "revolut", "sol", "usdc_solana"] as string[],
+  liveWithdrawalMethods: ACTIVE_WITHDRAWAL_METHODS,
   withdrawalNote: "Withdrawals are manually reviewed at launch.",
 
   // -- Availability --
