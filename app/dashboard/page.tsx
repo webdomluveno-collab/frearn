@@ -61,7 +61,7 @@ export default async function DashboardOverview() {
               ? `Withdraw from ${centsToUsd(siteConfig.withdrawalsFromCents)}`
               : "Withdraw rewards"}
           </ButtonLink>
-          <small>Revolut / Revtag {centsToUsd(PAYOUT_RULES.revolut.minimumCents)} · Crypto {centsToUsd(PAYOUT_RULES.sol.minimumCents)}</small>
+          <small>Revolut / native crypto from {centsToUsd(PAYOUT_RULES.revolut.minimumCents)} · Other crypto / Skrill from {centsToUsd(PAYOUT_RULES.sol.minimumCents)} (Skrill fees deducted)</small>
           <Link href="/dashboard/wallet" className="money-history-link">
             See wallet &amp; history ↗
           </Link>

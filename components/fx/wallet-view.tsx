@@ -8,6 +8,8 @@ import { toFxTransaction, type FxTransaction } from "@/lib/fx";
 import type { WalletSummary } from "@/lib/wallet/ledger";
 import {
   ACTIVE_WITHDRAWAL_METHODS,
+  NATIVE_CRYPTO_NAMES,
+  SKRILL_FEE_NOTICE,
   maskDestination,
   isValidDestination,
   LOWEST_WITHDRAWAL_CENTS,
@@ -143,6 +145,7 @@ function WithdrawalForm({ availableCents, onDone }: { availableCents: number; on
             <dd className="mono">{maskDestination(method, destination)}</dd>
           </div>
         </dl>
+        {method === "skrill" && <p className="notice notice-warning">{SKRILL_FEE_NOTICE}</p>}
         <p className="muted small">
           Most requests are reviewed within approximately 1 hour; exceptional cases may take up to 3 days.
           Reserved funds return to your balance if a request is rejected.
@@ -242,6 +245,7 @@ function WithdrawalForm({ availableCents, onDone }: { availableCents: number; on
           {meta.destinationHint}
         </p>
       </div>
+      {method === "skrill" && <p className="notice notice-warning">{SKRILL_FEE_NOTICE}</p>}
       {error && (
         <p className="form-error" role="alert">
           {error}
@@ -345,7 +349,7 @@ export function WalletView({
               {centsToUsd(availableCents)} / {centsToUsd(LOWEST_WITHDRAWAL_CENTS)}
             </strong>
             <p className="muted small">
-              Revolut withdrawals open at {centsToUsd(LOWEST_WITHDRAWAL_CENTS)}. Every little win counts
+              Revolut and selected native crypto withdrawals open at {centsToUsd(LOWEST_WITHDRAWAL_CENTS)}. Every little win counts
               toward it.
             </p>
           </div>
@@ -367,7 +371,7 @@ export function WalletView({
         <p>
           Pending rewards can be confirmed or reversed after review. Your available balance
           reflects confirmed ledger activity, including adjustments and withdrawals.{" "}
-          Revolut from {centsToUsd(WITHDRAWAL_METHOD_META.revolut.minimumCents)}; crypto from {centsToUsd(WITHDRAWAL_METHOD_META.sol.minimumCents)}. {siteConfig.withdrawalNote} Most requests are reviewed within approximately 1 hour; exceptional cases
+          Revolut and {NATIVE_CRYPTO_NAMES} on their native networks from {centsToUsd(WITHDRAWAL_METHOD_META.revolut.minimumCents)}. LTC, SOL and USDC from {centsToUsd(WITHDRAWAL_METHOD_META.sol.minimumCents)}. Skrill from {centsToUsd(WITHDRAWAL_METHOD_META.skrill.minimumCents)}, with fees deducted from payout. {siteConfig.withdrawalNote} Most requests are reviewed within approximately 1 hour; exceptional cases
           may take up to 3 days. Timing is estimated, not guaranteed.
         </p>
       </div>

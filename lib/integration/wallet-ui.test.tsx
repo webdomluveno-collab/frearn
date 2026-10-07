@@ -23,9 +23,8 @@ describe("real wallet integration UI",()=>{
   });
   it("all live methods remain available and card collects no details",()=>{
     render(<WalletView txns={[]} summary={summary} withdrawals={[]}/>);show();
-    for(const name of ["Revolut","Litecoin","SOL","USDC (Solana)","USDC (BEP20)"]) expect(screen.getByRole("button",{name})).toBeEnabled();
+    for(const name of METHOD_CASES.map(c=>c.label)) expect(screen.getByRole("button",{name})).toBeEnabled();
     expect(screen.getByRole("button",{name:"Card — Coming soon"})).toBeDisabled();
-    expect(screen.queryByRole("button",{name:"Skrill"})).not.toBeInTheDocument();
     expect(screen.queryByRole("button",{name:"PayPal"})).not.toBeInTheDocument();
     expect(screen.queryByLabelText(/CVV|card number|expiry/i)).not.toBeInTheDocument();
   });
@@ -99,4 +98,16 @@ describe("method-specific wallet form",()=>{
     await waitFor(()=>expect(mocks.refresh).toHaveBeenCalledOnce());
     expect(fetcher).toHaveBeenCalledWith(`/api/admin/withdrawals/one/${action}`,expect.objectContaining({method:"POST",credentials:"same-origin"}));
   });
+});
+
+it("Skrill displays fee deduction both before review and before confirming",()=>{
+  render(<WalletView txns={[]} summary={{...summary,availableCents:100,lifetimeCents:100}} withdrawals={[]}/>);show();
+  fireEvent.click(screen.getByRole("button",{name:"Skrill"}));
+  expect(screen.getByText(/Skrill fees are deducted from the requested amount/)).toBeVisible();
+  fireEvent.change(screen.getByLabelText("Amount (USD)"),{target:{value:"1.00"}});
+  fireEvent.change(screen.getByLabelText("Skrill email"),{target:{value:"user@example.com"}});
+  fireEvent.submit(screen.getByRole("form",{name:"Request a withdrawal"}));
+  expect(screen.getByText(/Skrill fees are deducted from the requested amount/)).toBeVisible();
+  expect(screen.getByRole("button",{name:"Confirm $1.00 withdrawal"})).toBeEnabled();
+  expect(screen.queryByText(/12.55/)).not.toBeInTheDocument();
 });

@@ -36,7 +36,7 @@ beforeAll(async () => {
     create schema auth; create table auth.users(id uuid primary key, email text, raw_user_meta_data jsonb);
     create function auth.uid() returns uuid language sql as $$ select nullif(current_setting('request.jwt.claim.sub',true),'')::uuid $$;`);
   await db.exec(read("schema.sql"));
-  for (const migration of ["002_cpx_provider.sql", "003_defensive_signup_trigger.sql", "004_fix_reversal_unique_index.sql", "005_withdrawals.sql", "006_ten_cent_withdrawals.sql", "007_method_specific_withdrawals.sql", "008_disable_paypal_withdrawals.sql"]) {
+  for (const migration of ["002_cpx_provider.sql", "003_defensive_signup_trigger.sql", "004_fix_reversal_unique_index.sql", "005_withdrawals.sql", "006_ten_cent_withdrawals.sql", "007_method_specific_withdrawals.sql", "008_disable_paypal_withdrawals.sql", "009_native_crypto_and_skrill.sql"]) {
     await db.exec(read(`migrations/${migration}`));
   }
   await db.query("insert into auth.users(id,email,raw_user_meta_data) values ($1::uuid,'one@example.com','{\"country\":\"CZ\"}'),($2::uuid,'two@example.com','{\"country\":\"CZ\"}')", [UID, OTHER]);
@@ -122,7 +122,7 @@ describe("forward withdrawal migration: real database enforcement", () => {
     expect((await request(minimum,"exact",UID,method)).is_duplicate).toBe(true);
     expect((await db.query("select * from ledger_transactions where type='withdrawal'")).rows).toHaveLength(1);
   });
-  it.each(["paypal","skrill","unknown",null])("DB: rejects disabled/unknown %s", async method => {
+  it.each(["paypal","unknown",null])("DB: rejects disabled/unknown %s", async method => {
     await credit(100);
     await expect(request(100,"disabled",UID,method as string)).rejects.toThrow("invalid_method");
     expect(await available()).toBe(100);
@@ -134,18 +134,18 @@ describe("forward withdrawal migration: real database enforcement", () => {
     await db.exec(read("migrations/006_ten_cent_withdrawals.sql"));
     let row;
     try { row = await request(10,"historical",UID,method); }
-    finally { await db.exec(read("migrations/008_disable_paypal_withdrawals.sql")); }
+    finally { await db.exec(read("migrations/009_native_crypto_and_skrill.sql")); }
     expect((await db.query("select method,amount_cents,status from withdrawal_requests where id=$1::uuid",[row!.request_id])).rows).toEqual([{method,amount_cents:10,status:"requested"}]);
     expect((await settle(row!.request_id,action)).already).toBe(false);
     expect((await settle(row!.request_id,action)).already).toBe(true);
     expect(await available()).toBe(action==="paid"?90:100);
-    await expect(request(10,"new-disabled",UID,method)).rejects.toThrow("invalid_method");
+    await expect(request(10,"new-disabled",UID,method)).rejects.toThrow(method==="skrill"?"below_minimum":"invalid_method");
   });
   it("an existing crypto request below the new minimum can still settle", async () => {
     await credit(10); await db.exec(read("migrations/006_ten_cent_withdrawals.sql"));
     let row;
     try { row = await request(10,"old-crypto",UID,"sol"); }
-    finally { await db.exec(read("migrations/008_disable_paypal_withdrawals.sql")); }
+    finally { await db.exec(read("migrations/009_native_crypto_and_skrill.sql")); }
     expect(await available()).toBe(0); await settle(row!.request_id,"rejected");
     expect(await available()).toBe(10);
   });
@@ -176,8 +176,21 @@ describe("forward withdrawal migration: real database enforcement", () => {
     expect(result.rows[0].definition).toContain("pg_advisory_xact_lock");
   });
   it("forward migration can be reapplied without changing active requests or balances", async () => {
-    await credit(100); const row = await request(); await db.exec(read("migrations/008_disable_paypal_withdrawals.sql"));
+    await credit(100); const row = await request(); await db.exec(read("migrations/009_native_crypto_and_skrill.sql"));
     expect(await available()).toBe(90); expect((await request()).request_id).toBe(row.request_id);
     await expect(request(10,"new")).rejects.toThrow("pending_withdrawal");
+  });
+});
+
+describe("new native and fee-bearing methods retain atomic accounting",()=>{
+  it.each(METHOD_CASES.filter(c=>["cfx","rvn","0g","iotx","xno","skrill"].includes(c.method)))("$method reserves, pays or refunds one gross amount",async({method,minimum})=>{
+    await credit(minimum);const row=await request(minimum,"gross",UID,method);
+    expect(await available()).toBe(0);
+    await expect(request(minimum,"second",UID,method)).rejects.toThrow("pending_withdrawal");
+    await settle(row.request_id,"rejected");expect(await available()).toBe(minimum);
+    const paid=await request(minimum,"paid",UID,method);await settle(paid.request_id,"paid");
+    expect(await available()).toBe(0);expect((await settle(paid.request_id,"paid")).already).toBe(true);
+    const confirmed=(await db.query<{amount_cents:number}>("select amount_cents from ledger_transactions where type='withdrawal' and status='confirmed'")).rows;
+    expect(confirmed).toEqual([{amount_cents:-minimum}]);
   });
 });

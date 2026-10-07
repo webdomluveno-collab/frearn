@@ -56,9 +56,9 @@ describe("parseAmountCents", () => {
 });
 
 describe("withdrawal methods", () => {
-  it("activates five supported methods and retires Skrill", () => {
+  it("activates eleven supported methods and retires Skrill", () => {
     expect([...ACTIVE_WITHDRAWAL_METHODS].sort()).toEqual(
-      ["revolut", "ltc", "sol", "usdc_solana", "usdc_bep20"].sort()
+      ["revolut", "ltc", "sol", "usdc_solana", "usdc_bep20", "cfx", "rvn", "0g", "iotx", "xno", "skrill"].sort()
     );
     expect(isActiveWithdrawalMethod("paypal")).toBe(false);
     expect(isActiveWithdrawalMethod("card")).toBe(false);
@@ -73,10 +73,10 @@ describe("withdrawal methods", () => {
 });
 
 describe("destination validation", () => {
-  it("recognizes email shape but rejects retired PayPal and Skrill", () => {
+  it("recognizes email shape, accepts Skrill and rejects retired PayPal", () => {
     expect(isValidEmailDestination("user@example.com")).toBe(true);
     expect(isValidDestination("paypal", "user@example.com")).toBe(false);
-    expect(isValidDestination("skrill", "User@Example.COM")).toBe(false);
+    expect(isValidDestination("skrill", "User@Example.COM")).toBe(true);
   });
 
   it("rejects malformed emails", () => {
@@ -146,13 +146,13 @@ describe("method-specific shared policy", () => {
     expect(isWithdrawableAmount(method,minimum)).toBe(true);
     expect(isValidDestination(method,destination)).toBe(true);
   });
-  it.each(["paypal","skrill","card","unknown",null,"toString","__proto__"])("rejects disabled or unknown %s", method => {
+  it.each(["paypal","card","unknown",null,"toString","__proto__"])("rejects disabled or unknown %s", method => {
     expect(isActiveWithdrawalMethod(method)).toBe(false);
     expect(isWithdrawableAmount(method,1000)).toBe(false);
   });
   it("retains known Skrill metadata for history", () => {
     expect(isKnownWithdrawalMethod("skrill")).toBe(true);
-    expect(PAYOUT_RULES.skrill.enabled).toBe(false);
+    expect(PAYOUT_RULES.skrill.enabled).toBe(true);
     expect(maskDestination("skrill","old@example.com")).toBe("o***@example.com");
   });
   it("rejects unsafe/DB-overflow amounts", () => {
@@ -175,4 +175,34 @@ it("retains PayPal metadata and masking for historical records",()=>{
   expect(isKnownWithdrawalMethod("paypal")).toBe(true);
   expect(PAYOUT_RULES.paypal.enabled).toBe(false);
   expect(maskDestination("paypal","legacy@example.com")).toBe("l***@example.com");
+});
+
+describe("native address shapes and Skrill normalization",()=>{
+  const address=(method:string)=>METHOD_CASES.find(c=>c.method===method)!.destination;
+  it("Conflux Core supports mainnet compact and verbose forms, rejects testnet/eSpace/mixed case",()=>{
+    const cfx=address("cfx");expect(isValidDestination("cfx",cfx)).toBe(true);
+    expect(isValidDestination("cfx",cfx.replace("cfx:","CFX:TYPE.USER:").toUpperCase())).toBe(true);
+    for(const bad of [cfx.replace("cfx:","cfxtest:"),address("0g"),cfx.replace("cfx:","Cfx:"),"cfx:short"]) expect(isValidDestination("cfx",bad)).toBe(false);
+  });
+  it("Ravencoin mainnet shapes exclude Bitcoin and testnet addresses",()=>{
+    expect(isValidDestination("rvn","r"+"a".repeat(33))).toBe(true);
+    for(const bad of ["1"+"a".repeat(33),"m"+"a".repeat(33),"Rshort",address("0g")]) expect(isValidDestination("rvn",bad)).toBe(false);
+  });
+  it("0G accepts EVM address shapes; preserves case; does not accept other formats",()=>{
+    expect(isValidDestination("0g",address("0g"))).toBe(true);
+    expect(normalizeDestination("0g"," 0x1234567890ABCdef1234567890abcdef12345678 ")).toBe("0x1234567890ABCdef1234567890abcdef12345678");
+    for(const bad of ["0xshort",address("cfx"),"0x"+"g".repeat(40)])expect(isValidDestination("0g",bad)).toBe(false);
+  });
+  it("IoTeX supports native io1 and EVM formats, rejects malformed shapes",()=>{
+    expect(isValidDestination("iotx",address("iotx"))).toBe(true);expect(isValidDestination("iotx",address("0g"))).toBe(true);
+    for(const bad of ["io1short","io1"+"i".repeat(38),address("cfx")])expect(isValidDestination("iotx",bad)).toBe(false);
+  });
+  it("Nano supports interchangeable nano_/xrb_ formats, rejects keys and malformed shapes",()=>{
+    const nano=address("xno");expect(isValidDestination("xno",nano.replace("nano_","xrb_"))).toBe(true);
+    for(const bad of [nano.replace("nano_1","nano_2"),"nano_"+"0".repeat(60),"a".repeat(64),nano.slice(0,-1)])expect(isValidDestination("xno",bad)).toBe(false);
+  });
+  it("Skrill normalizes email but is still method-specific at 100 cents",()=>{
+    expect(normalizeDestination("skrill"," User@Example.COM ")).toBe("user@example.com");
+    expect(isWithdrawableAmount("skrill",99)).toBe(false);expect(isWithdrawableAmount("skrill",100)).toBe(true);
+  });
 });

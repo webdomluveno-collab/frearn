@@ -247,7 +247,7 @@ describe("API method-specific boundaries", () => {
     expect(res.status).toBe(200);
     expect(mockedRequest).toHaveBeenCalledWith(expect.objectContaining({userId:id,method,amountCents:minimum,destination}));
   });
-  it.each(["paypal","skrill","unknown","card"])("%s cannot create a new request", async method => {
+  it.each(["paypal","unknown","card"])("%s cannot create a new request", async method => {
     mockedSession.mockResolvedValue({id:`test-user-${++uidCounter}`,email:"u@x.co"});
     const res=await requestPost(post({method,amountCents:100,destination:"old@example.com"}));
     expect(res.status).toBe(400);expect(await res.json()).toEqual({error:"invalid_method"});
@@ -262,4 +262,11 @@ describe("PayPal disabled at every amount",()=>{
     expect(res.status).toBe(400);expect(await res.json()).toEqual({error:"invalid_method"});
     expect(mockedRequest).not.toHaveBeenCalled();
   });
+});
+
+it("Skrill email is normalized before the authoritative request; amount stays gross",async()=>{
+  const id=`test-user-${++uidCounter}`;mockedSession.mockResolvedValue({id,email:"u@x.co"});
+  mockedRequest.mockResolvedValue({ok:true,request:row({method:"skrill",amountCents:100}),duplicate:false});
+  const res=await requestPost(post({method:"skrill",amountCents:100,destination:" User@Example.COM ",requestKey:UID}));
+  expect(res.status).toBe(200);expect(mockedRequest).toHaveBeenCalledWith(expect.objectContaining({method:"skrill",amountCents:100,destination:"user@example.com"}));
 });

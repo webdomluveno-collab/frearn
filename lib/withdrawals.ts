@@ -4,12 +4,37 @@
  * client use is for UX only (error messages, masking, method metadata).
  */
 
-/** One UI/server rule set. Migration 008 independently enforces these rules in PostgreSQL. */
+/** One UI/server rule set. Migration 009 independently enforces these rules in PostgreSQL. */
 export const PAYOUT_RULES = {
   revolut: {
     enabled: true, minimumCents: 10, label: "Revolut",
     destinationLabel: "Revolut @username", destinationPlaceholder: "@username",
     destinationHint: "Your Revtag, starting with @. Enter it carefully — you are responsible for its accuracy. Not “Revolut Pay”.",
+  },
+  cfx: {
+    enabled: true, minimumCents: 10, label: "CFX (Conflux native)",
+    destinationLabel: "Conflux Core Space address", destinationPlaceholder: "cfx:… (mainnet)",
+    destinationHint: "Native CFX on Conflux Core Space mainnet only. Use a cfx: address, not eSpace, Ethereum or wrapped CFX.",
+  },
+  rvn: {
+    enabled: true, minimumCents: 10, label: "RVN (Ravencoin native)",
+    destinationLabel: "Ravencoin wallet address", destinationPlaceholder: "R… (Ravencoin mainnet)",
+    destinationHint: "Native RVN on Ravencoin mainnet only. Wrapped RVN and other networks are not supported.",
+  },
+  "0g": {
+    enabled: true, minimumCents: 10, label: "0G (native)",
+    destinationLabel: "0G mainnet wallet address", destinationPlaceholder: "0x… (0G mainnet)",
+    destinationHint: "Native 0G on 0G mainnet only. An EVM-format address does not identify its network: use a wallet on 0G, not another chain.",
+  },
+  iotx: {
+    enabled: true, minimumCents: 10, label: "IOTX (IoTeX native)",
+    destinationLabel: "IoTeX wallet address", destinationPlaceholder: "io1… or 0x… (IoTeX mainnet)",
+    destinationHint: "Native IOTX on IoTeX mainnet only. IoTeX supports io1 and 0x addresses; ERC20 IOTX on Ethereum is not this payout method.",
+  },
+  xno: {
+    enabled: true, minimumCents: 10, label: "XNO (Nano native)",
+    destinationLabel: "Nano wallet address", destinationPlaceholder: "nano_… (or legacy xrb_…)",
+    destinationHint: "Native XNO on Nano only. Use a nano_ or xrb_ account address, not a seed or private key.",
   },
   paypal: {
     enabled: false, minimumCents: null, label: "PayPal",
@@ -37,9 +62,10 @@ export const PAYOUT_RULES = {
     destinationHint: "USDC on BNB Smart Chain (BEP20) only. Do not use Solana or another EVM network for this payout.",
   },
   skrill: {
-    enabled: false, minimumCents: null, label: "Skrill",
+    enabled: true, minimumCents: 100, label: "Skrill",
     destinationLabel: "Skrill email", destinationPlaceholder: "you@example.com",
-    destinationHint: "Historical withdrawals only. New Skrill requests are disabled.",
+    destinationHint: "Skrill email for a manual transfer. Fees are deducted from the payout.",
+    feeNotice: "Skrill fees are deducted from the requested amount when paid. You receive less than the requested amount. The actual fee is determined during manual payment; no fixed net amount is quoted.",
   },
 } as const;
 
@@ -58,6 +84,11 @@ export const ACTIVE_WITHDRAWAL_METHODS = Object.keys(PAYOUT_RULES).filter(isActi
 /** Display/entry threshold only. Never use this to authorize a specific method. */
 export const LOWEST_WITHDRAWAL_CENTS = Math.min(...ACTIVE_WITHDRAWAL_METHODS.map(m => PAYOUT_RULES[m].minimumCents));
 export const WITHDRAWAL_METHOD_META = PAYOUT_RULES;
+export const LOW_MINIMUM_NATIVE_CRYPTO_METHODS = ACTIVE_WITHDRAWAL_METHODS.filter(m => m !== "revolut" && PAYOUT_RULES[m].minimumCents === 10);
+export const NATIVE_CRYPTO_NAMES = LOW_MINIMUM_NATIVE_CRYPTO_METHODS.map(m => m.toUpperCase()).join(", ");
+export const SKRILL_FEE_NOTICE = PAYOUT_RULES.skrill.feeNotice;
+/** Operator-supplied estimate, not a tariff or a customer net quote. Verify actual fees. */
+export const SKRILL_OPERATOR_FEE_ESTIMATE = { currency: "CZK", feeMinor: 1255, approximateUpToUsdCents: 5000 } as const;
 export const PLANNED_WITHDRAWAL_METHODS = ["card"] as const;
 export function getWithdrawalMinimumCents(method: ActiveWithdrawalMethod): number {
   return PAYOUT_RULES[method].minimumCents;
@@ -101,9 +132,40 @@ export function isValidLitecoinAddress(value: unknown): boolean {
 export function isValidBep20Address(value: unknown): boolean {
   return typeof value === "string" && /^0x[0-9a-fA-F]{40}$/.test(value.trim());
 }
+/** Format checks only; operators verify checksums/network and recipient before sending. */
+export function isValidConfluxAddress(value: unknown): boolean {
+  if (typeof value !== "string") return false;
+  const v = value.trim();
+  if (v !== v.toLowerCase() && v !== v.toUpperCase()) return false;
+  return /^cfx:(?:type\.(?:user|contract):)?[abcdefghjkmnprstuvwxyz0123456789]{42}$/.test(v.toLowerCase());
+}
+export function isValidRavencoinAddress(value: unknown): boolean {
+  return typeof value === "string" && /^[Rr][1-9A-HJ-NP-Za-km-z]{33}$/.test(value.trim());
+}
+export function isValidIoTeXAddress(value: unknown): boolean {
+  if (typeof value !== "string") return false;
+  const v = value.trim();
+  return isValidBep20Address(v) || /^io1[023456789acdefghjklmnpqrstuvwxyz]{38}$/.test(v);
+}
+export function isValidNanoAddress(value: unknown): boolean {
+  return typeof value === "string" && /^(nano|xrb)_[13][13456789abcdefghijkmnopqrstuwxyz]{59}$/.test(value.trim());
+}
+
 export function isValidDestination(method: unknown, value: unknown): boolean {
   if (!isActiveWithdrawalMethod(method)) return false;
   switch (method) {
+    case "skrill":
+      return isValidEmailDestination(value);
+    case "cfx":
+      return isValidConfluxAddress(value);
+    case "rvn":
+      return isValidRavencoinAddress(value);
+    case "0g":
+      return isValidBep20Address(value);
+    case "iotx":
+      return isValidIoTeXAddress(value);
+    case "xno":
+      return isValidNanoAddress(value);
     case "revolut":
       return isValidRevolutDestination(value);
     case "ltc":
@@ -120,7 +182,7 @@ export function isValidDestination(method: unknown, value: unknown): boolean {
 
 export function normalizeDestination(method: ActiveWithdrawalMethod, value: string): string {
   const v = value.trim();
-  return v;
+  return method === "skrill" ? normalizeEmailDestination(v) : v;
 }
 
 /** Strict display-string → integer cents ("5", "5.00", "5.5"). Rejects floats-as-text. */

@@ -4,16 +4,17 @@ import { Icon, type IconName } from '@/components/fx/icon';
 import { TallyMark } from '@/components/fx/tally';
 import { MomentArt } from '@/components/fx/moment-art';
 import { HomepageMotion, PayoutSlider, PlannedLevels } from '@/components/homepage/experience';
-import { PAYOUT_RULES } from '@/lib/withdrawals';
+import { NATIVE_CRYPTO_NAMES, PAYOUT_RULES } from '@/lib/withdrawals';
 import { centsToUsd as money } from '@/lib/money';
 import styles from './homepage.module.css';
 
 export const metadata: Metadata = {
   title: 'Freearn — Little moments. Real possibilities.',
-  description: `Discover surveys and offers. Cash out from just ${money(PAYOUT_RULES.revolut.minimumCents)} with Revolut. Crypto withdrawals from ${money(PAYOUT_RULES.sol.minimumCents)}.`,
+  description: `Discover surveys and offers. Cash out from just ${money(PAYOUT_RULES.revolut.minimumCents)} with Revolut. Native CFX, RVN, 0G, IOTX and XNO withdrawals from ${money(PAYOUT_RULES.cfx.minimumCents)}. Other crypto from ${money(PAYOUT_RULES.sol.minimumCents)}.`,
 };
 const minimum = money(PAYOUT_RULES.revolut.minimumCents);
 const cryptoMinimum = money(PAYOUT_RULES.sol.minimumCents);
+const nativeMinimum = money(PAYOUT_RULES.cfx.minimumCents);
 const steps: { title: string; detail: string; icon: IconName; label: string }[] = [
   {
     title: 'Make yourself at home.',
@@ -32,7 +33,7 @@ const steps: { title: string; detail: string; icon: IconName; label: string }[] 
     title: 'Start small. Cash out.',
     label: `FROM ${minimum}`,
     detail:
-      `Revolut from ${minimum}; crypto from ${cryptoMinimum}. Only confirmed, available rewards can be withdrawn.`,
+      `Revolut and selected native crypto from ${minimum}; LTC, SOL and USDC from ${cryptoMinimum}. Only confirmed, available rewards can be withdrawn.`,
     icon: 'wallet',
   },
   {
@@ -45,7 +46,7 @@ const steps: { title: string; detail: string; icon: IconName; label: string }[] 
 const faqs = [
   [
     'What is the minimum withdrawal?',
-    `Cash out from just ${minimum} with Revolut. Crypto withdrawals from ${cryptoMinimum}. Only confirmed, available rewards can be withdrawn. One active withdrawal request per account is allowed at a time.`,
+    `Cash out from just ${minimum} with Revolut. Native ${NATIVE_CRYPTO_NAMES} withdrawals from ${nativeMinimum}. LTC, SOL and USDC withdrawals from ${cryptoMinimum}. Skrill requests from ${money(PAYOUT_RULES.skrill.minimumCents)}, with fees deducted from payout. Only confirmed, available rewards can be withdrawn. One active withdrawal request per account is allowed at a time.`,
   ],
   [
     'How fast are payouts processed?',
@@ -53,7 +54,7 @@ const faqs = [
   ],
   [
     'Which payout methods can I choose?',
-    'Revolut / Revtag, Litecoin, SOL on Solana, USDC on Solana and USDC on BNB Smart Chain (BEP20) are supported. PayPal and Skrill are available only for historical withdrawals. Revolut is our fastest payout option. Card payouts are coming soon. Check your wallet for availability.',
+    `Revolut / Revtag; native ${NATIVE_CRYPTO_NAMES}; Litecoin; SOL on Solana; USDC on Solana or BNB Smart Chain (BEP20); and Skrill are supported. PayPal is available only for historical withdrawals. Skrill fees are deducted from payout. Card payouts are coming soon. Check your wallet for availability.`,
   ],
   [
     'Do I need to pay anything?',
@@ -150,7 +151,7 @@ export default function HomePage() {
                 </a>
               </div>
               <p className={styles.heroNote}>
-                Crypto withdrawals from {cryptoMinimum}. Manual review before payout.
+                Native crypto withdrawals from {nativeMinimum}. LTC, SOL and USDC from {cryptoMinimum}. Manual review before payout.
               </p>
             </div>
             <div className={styles.heroVisual}>
@@ -177,7 +178,7 @@ export default function HomePage() {
               <span>Less waiting.</span>
             </h2>
             <p>
-              Cash out from just {minimum} with Revolut. Crypto withdrawals from {cryptoMinimum}.
+              Cash out from just {minimum} with Revolut. Native crypto withdrawals from {nativeMinimum}.
               Revolut is our fastest option, with a human check first.
             </p>
             <span className={styles.reviewTag}>
@@ -343,14 +344,14 @@ export default function HomePage() {
               </div>
             </article>
             <article className={`${styles.paymentMethod} ${styles.crypto}`}>
-              <span className={styles.methodTag}>CRYPTO / FROM {cryptoMinimum}</span>
+              <span className={styles.methodTag}>NATIVE CRYPTO / FROM {nativeMinimum}</span>
               <div className={styles.paymentSymbol} aria-hidden="true">
                 <Icon name="wallet" size={37} />
               </div>
-              <h3>Crypto</h3>
-              <p>LTC (Litecoin), SOL (Solana), USDC (Solana or BEP20).</p>
+              <h3>Native crypto</h3>
+              <p>{NATIVE_CRYPTO_NAMES}. Native networks only.</p>
               <div>
-                <span>From {cryptoMinimum}</span>
+                <span>From {nativeMinimum}</span>
                 <Icon name="external" size={20} />
               </div>
             </article>
@@ -369,7 +370,7 @@ export default function HomePage() {
           </div>
           <p className={styles.disclaimer}>
             Availability depends on account and region. Check your wallet for supported methods.
-            Crypto withdrawals from {cryptoMinimum}: Litecoin, SOL on Solana, USDC on Solana and USDC on BNB Smart Chain (BEP20). Most requests are reviewed within approximately 1 hour; exceptional cases may take up to 3 days. Timing is not guaranteed.
+            Native {NATIVE_CRYPTO_NAMES} from {nativeMinimum}. Litecoin, SOL on Solana and USDC on Solana or BNB Smart Chain (BEP20) from {cryptoMinimum}. Skrill from {money(PAYOUT_RULES.skrill.minimumCents)}, with fees deducted from payout. Most requests are reviewed within approximately 1 hour; exceptional cases may take up to 3 days. Timing is not guaranteed.
           </p>
         </section>
         <section
