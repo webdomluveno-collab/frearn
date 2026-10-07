@@ -13,6 +13,7 @@ import {
   maskDestination,
   LOWEST_WITHDRAWAL_CENTS,
   normalizeDestination,
+  normalizeEmailDestination,
   parseAmountCents,
 } from "./withdrawals";
 
@@ -55,11 +56,11 @@ describe("parseAmountCents", () => {
 });
 
 describe("withdrawal methods", () => {
-  it("activates six supported methods and retires Skrill", () => {
+  it("activates five supported methods and retires Skrill", () => {
     expect([...ACTIVE_WITHDRAWAL_METHODS].sort()).toEqual(
-      ["paypal", "revolut", "ltc", "sol", "usdc_solana", "usdc_bep20"].sort()
+      ["revolut", "ltc", "sol", "usdc_solana", "usdc_bep20"].sort()
     );
-    expect(isActiveWithdrawalMethod("paypal")).toBe(true);
+    expect(isActiveWithdrawalMethod("paypal")).toBe(false);
     expect(isActiveWithdrawalMethod("card")).toBe(false);
     expect(isActiveWithdrawalMethod("usdt")).toBe(false);
     expect(isActiveWithdrawalMethod("")).toBe(false);
@@ -72,9 +73,9 @@ describe("withdrawal methods", () => {
 });
 
 describe("destination validation", () => {
-  it("accepts PayPal emails and rejects retired Skrill", () => {
+  it("recognizes email shape but rejects retired PayPal and Skrill", () => {
     expect(isValidEmailDestination("user@example.com")).toBe(true);
-    expect(isValidDestination("paypal", "user@example.com")).toBe(true);
+    expect(isValidDestination("paypal", "user@example.com")).toBe(false);
     expect(isValidDestination("skrill", "User@Example.COM")).toBe(false);
   });
 
@@ -86,7 +87,7 @@ describe("destination validation", () => {
   });
 
   it("normalizes email case/whitespace", () => {
-    expect(normalizeDestination("paypal", "  User@Example.COM ")).toBe("user@example.com");
+    expect(normalizeEmailDestination("  User@Example.COM ")).toBe("user@example.com");
   });
 
   it("accepts valid Revolut @usernames", () => {
@@ -145,7 +146,7 @@ describe("method-specific shared policy", () => {
     expect(isWithdrawableAmount(method,minimum)).toBe(true);
     expect(isValidDestination(method,destination)).toBe(true);
   });
-  it.each(["skrill","card","unknown",null,"toString","__proto__"])("rejects disabled or unknown %s", method => {
+  it.each(["paypal","skrill","card","unknown",null,"toString","__proto__"])("rejects disabled or unknown %s", method => {
     expect(isActiveWithdrawalMethod(method)).toBe(false);
     expect(isWithdrawableAmount(method,1000)).toBe(false);
   });
@@ -155,17 +156,23 @@ describe("method-specific shared policy", () => {
     expect(maskDestination("skrill","old@example.com")).toBe("o***@example.com");
   });
   it("rejects unsafe/DB-overflow amounts", () => {
-    expect(isWithdrawableAmount("paypal",2147483648)).toBe(false);
-    expect(isWithdrawableAmount("paypal",Number.MAX_SAFE_INTEGER+1)).toBe(false);
+    expect(isWithdrawableAmount("revolut",2147483648)).toBe(false);
+    expect(isWithdrawableAmount("revolut",Number.MAX_SAFE_INTEGER+1)).toBe(false);
   });
   it("keeps BEP20 case and rejects malformed or wrong-chain destinations", () => {
     const address="0x1234567890aBCdef1234567890abcdef12345678";
     expect(isValidDestination("usdc_bep20",address)).toBe(true);
     expect(normalizeDestination("usdc_bep20",` ${address} `)).toBe(address);
-    for(const bad of ["0xabc","0x"+"g".repeat(40),METHOD_CASES[3].destination]) expect(isValidDestination("usdc_bep20",bad)).toBe(false);
+    for(const bad of ["0xabc","0x"+"g".repeat(40),METHOD_CASES.find(c=>c.method==="sol")!.destination]) expect(isValidDestination("usdc_bep20",bad)).toBe(false);
   });
   it("accepts Litecoin mainnet shapes, rejects testnet, other chains and MWEB", () => {
-    for(const good of [METHOD_CASES[2].destination,"M"+"a".repeat(33),"ltc1q"+"a".repeat(38)]) expect(isValidDestination("ltc",good)).toBe(true);
-    for(const bad of ["1"+"a".repeat(33),"tltc1q"+"a".repeat(38),"ltc1mweb"+"a".repeat(90),METHOD_CASES[5].destination,"short"]) expect(isValidDestination("ltc",bad)).toBe(false);
+    for(const good of [METHOD_CASES.find(c=>c.method==="ltc")!.destination,"M"+"a".repeat(33),"ltc1q"+"a".repeat(38)]) expect(isValidDestination("ltc",good)).toBe(true);
+    for(const bad of ["1"+"a".repeat(33),"tltc1q"+"a".repeat(38),"ltc1mweb"+"a".repeat(90),METHOD_CASES.find(c=>c.method==="usdc_bep20")!.destination,"short"]) expect(isValidDestination("ltc",bad)).toBe(false);
   });
+});
+
+it("retains PayPal metadata and masking for historical records",()=>{
+  expect(isKnownWithdrawalMethod("paypal")).toBe(true);
+  expect(PAYOUT_RULES.paypal.enabled).toBe(false);
+  expect(maskDestination("paypal","legacy@example.com")).toBe("l***@example.com");
 });

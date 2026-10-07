@@ -345,7 +345,7 @@ export function WalletView({
               {centsToUsd(availableCents)} / {centsToUsd(LOWEST_WITHDRAWAL_CENTS)}
             </strong>
             <p className="muted small">
-              Revolut or PayPal withdrawals open at {centsToUsd(LOWEST_WITHDRAWAL_CENTS)}. Every little win counts
+              Revolut withdrawals open at {centsToUsd(LOWEST_WITHDRAWAL_CENTS)}. Every little win counts
               toward it.
             </p>
           </div>
@@ -367,7 +367,7 @@ export function WalletView({
         <p>
           Pending rewards can be confirmed or reversed after review. Your available balance
           reflects confirmed ledger activity, including adjustments and withdrawals.{" "}
-          Revolut and PayPal from {centsToUsd(WITHDRAWAL_METHOD_META.paypal.minimumCents)}; crypto from {centsToUsd(WITHDRAWAL_METHOD_META.sol.minimumCents)}. {siteConfig.withdrawalNote} Most requests are reviewed within approximately 1 hour; exceptional cases
+          Revolut from {centsToUsd(WITHDRAWAL_METHOD_META.revolut.minimumCents)}; crypto from {centsToUsd(WITHDRAWAL_METHOD_META.sol.minimumCents)}. {siteConfig.withdrawalNote} Most requests are reviewed within approximately 1 hour; exceptional cases
           may take up to 3 days. Timing is estimated, not guaranteed.
         </p>
       </div>

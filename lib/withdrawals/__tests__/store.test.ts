@@ -126,14 +126,14 @@ describe("migration 005 atomicity guarantees (SQL review pins)", () => {
   });
 });
 
-describe("historical Skrill store compatibility", () => {
+describe("historical PayPal/Skrill store compatibility", () => {
   const oldRow = {id:"old-skrill",user_id:UID,amount_cents:10,method:"skrill",destination:"legacy@example.com",status:"requested",created_at:"2026-01-01T00:00:00Z",ledger_transaction_id:"old-hold"};
-  it("own history retains retired method records", async () => {
-    vi.mocked(getSupabaseAdmin).mockReturnValue(fakeClient([oldRow]) as never);
-    expect(await listMyWithdrawals(UID)).toEqual([expect.objectContaining({method:"skrill",amountCents:10,destination:"legacy@example.com"})]);
+  it.each(["skrill","paypal"])("own history retains retired %s records", async method => {
+    vi.mocked(getSupabaseAdmin).mockReturnValue(fakeClient([{...oldRow,method}]) as never);
+    expect(await listMyWithdrawals(UID)).toEqual([expect.objectContaining({method,amountCents:10,destination:"legacy@example.com"})]);
   });
-  it("admin pending queue retains active historical Skrill requests", async () => {
-    vi.mocked(getSupabaseAdmin).mockReturnValue(fakeClient([oldRow,{...oldRow,id:"paid",status:"paid"}]) as never);
-    expect(await listPendingWithdrawals()).toEqual([expect.objectContaining({id:"old-skrill",method:"skrill",status:"requested"})]);
+  it.each(["skrill","paypal"])("admin queue retains active historical %s requests", async method => {
+    vi.mocked(getSupabaseAdmin).mockReturnValue(fakeClient([{...oldRow,method},{...oldRow,method,id:"paid",status:"paid"}]) as never);
+    expect(await listPendingWithdrawals()).toEqual([expect.objectContaining({id:"old-skrill",method,status:"requested"})]);
   });
 });

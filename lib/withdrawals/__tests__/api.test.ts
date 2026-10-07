@@ -38,8 +38,8 @@ function row(overrides: Partial<WithdrawalRequestRow> = {}): WithdrawalRequestRo
     id: "req-1",
     userId: UID,
     amountCents: 500,
-    method: "paypal",
-    destination: "user@example.com",
+    method: "revolut",
+    destination: "@someone",
     status: "requested",
     createdAt: new Date().toISOString(),
     ledgerTransactionId: "ledger-1",
@@ -60,14 +60,14 @@ beforeEach(() => {
 describe("POST /api/withdrawals/request", () => {
   it("1. unauthenticated withdrawal rejected (401)", async () => {
     mockedSession.mockResolvedValue(null);
-    const res = await requestPost(post({ amountCents: 500, method: "paypal", destination: "a@b.co" }));
+    const res = await requestPost(post({ amountCents: 500, method: "revolut", destination: "@someone" }));
     expect(res.status).toBe(401);
     expect(mockedRequest).not.toHaveBeenCalled();
   });
 
   it("2. $0.09 rejected (below_minimum)", async () => {
     mockedSession.mockResolvedValue({ id: `test-user-${++uidCounter}`, email: "u@x.co" });
-    const res = await requestPost(post({ amountCents: 9, method: "paypal", destination: "a@b.co" }));
+    const res = await requestPost(post({ amountCents: 9, method: "revolut", destination: "@someone" }));
     expect(res.status).toBe(400);
     expect(((await res.json()) as { error: string }).error).toBe("below_minimum");
   });
@@ -97,14 +97,14 @@ describe("POST /api/withdrawals/request", () => {
   it("4. request greater than balance rejected (insufficient_balance)", async () => {
     mockedSession.mockResolvedValue({ id: `test-user-${++uidCounter}`, email: "u@x.co" });
     mockedRequest.mockResolvedValue({ ok: false, error: "insufficient_balance" });
-    const res = await requestPost(post({ amountCents: 10000, method: "paypal", destination: "a@b.co" }));
+    const res = await requestPost(post({ amountCents: 10000, method: "revolut", destination: "@someone" }));
     expect(res.status).toBe(422);
   });
 
   it("5/6/7. zero, negative, and non-integer cents rejected", async () => {
     mockedSession.mockResolvedValue({ id: `test-user-${++uidCounter}`, email: "u@x.co" });
     for (const amountCents of [0, -100, 300.5]) {
-      const res = await requestPost(post({ amountCents, method: "paypal", destination: "a@b.co" }));
+      const res = await requestPost(post({ amountCents, method: "revolut", destination: "@someone" }));
       expect(res.status).toBe(400);
     }
     expect(mockedRequest).not.toHaveBeenCalled();
@@ -113,7 +113,7 @@ describe("POST /api/withdrawals/request", () => {
   it("8/27. invalid method — including card — rejected", async () => {
     mockedSession.mockResolvedValue({ id: `test-user-${++uidCounter}`, email: "u@x.co" });
     for (const method of ["card", "usdt", "", "PAYPAL"]) {
-      const res = await requestPost(post({ amountCents: 500, method, destination: "a@b.co" }));
+      const res = await requestPost(post({ amountCents: 500, method, destination: "@someone" }));
       expect(res.status).toBe(400);
       expect(((await res.json()) as { error: string }).error).toBe("invalid_method");
     }
@@ -123,15 +123,6 @@ describe("POST /api/withdrawals/request", () => {
     mockedSession.mockResolvedValue({ id: `test-user-${++uidCounter}`, email: "u@x.co" });
     const res = await requestPost(post({ amountCents: 500, method: "revolut", destination: "not-a-handle" }));
     expect(res.status).toBe(400);
-  });
-
-  it("10. PayPal email accepted", async () => {
-    mockedSession.mockResolvedValue({ id: `test-user-${++uidCounter}`, email: "u@x.co" });
-    for (const method of ["paypal"]) {
-      mockedRequest.mockResolvedValue({ ok: true, request: row({ method }), duplicate: false });
-      const res = await requestPost(post({ amountCents: 500, method, destination: "Pay@Example.COM" }));
-      expect(res.status).toBe(200);
-    }
   });
 
   it("12/13. valid Revolut accepted, invalid rejected", async () => {
@@ -157,7 +148,7 @@ describe("POST /api/withdrawals/request", () => {
     mockedSession.mockResolvedValue({ id: `test-user-${++uidCounter}`, email: "u@x.co" });
     mockedRequest.mockResolvedValue({ ok: true, request: row(), duplicate: true });
     const res = await requestPost(
-      post({ amountCents: 500, method: "paypal", destination: "a@b.co", requestKey: UID })
+      post({ amountCents: 500, method: "revolut", destination: "@someone", requestKey: UID })
     );
     expect(res.status).toBe(200);
     expect(((await res.json()) as { duplicate: boolean }).duplicate).toBe(true);
@@ -166,9 +157,9 @@ describe("POST /api/withdrawals/request", () => {
   it("28. service-role/admin fields never leak to the browser", async () => {
     mockedSession.mockResolvedValue({ id: `test-user-${++uidCounter}`, email: "u@x.co" });
     mockedRequest.mockResolvedValue({ ok: true, request: row(), duplicate: false });
-    const res = await requestPost(post({ amountCents: 500, method: "paypal", destination: "Full@Example.COM" }));
+    const res = await requestPost(post({ amountCents: 500, method: "revolut", destination: "@FullUsername" }));
     const text = await res.text();
-    expect(text).not.toContain("Full@Example.COM");
+    expect(text).not.toContain("@FullUsername");
     expect(text).not.toContain("user@example.com");
     expect(text).not.toContain("destination");
     expect(text).not.toContain("service");
@@ -256,9 +247,18 @@ describe("API method-specific boundaries", () => {
     expect(res.status).toBe(200);
     expect(mockedRequest).toHaveBeenCalledWith(expect.objectContaining({userId:id,method,amountCents:minimum,destination}));
   });
-  it.each(["skrill","unknown","card"])("%s cannot create a new request", async method => {
+  it.each(["paypal","skrill","unknown","card"])("%s cannot create a new request", async method => {
     mockedSession.mockResolvedValue({id:`test-user-${++uidCounter}`,email:"u@x.co"});
     const res=await requestPost(post({method,amountCents:100,destination:"old@example.com"}));
+    expect(res.status).toBe(400);expect(await res.json()).toEqual({error:"invalid_method"});
+    expect(mockedRequest).not.toHaveBeenCalled();
+  });
+});
+
+describe("PayPal disabled at every amount",()=>{
+  it.each([9,10,99,100,10000])("rejects new PayPal at %s cents before any RPC",async amountCents=>{
+    mockedSession.mockResolvedValue({id:`test-user-${++uidCounter}`,email:"u@x.co"});
+    const res=await requestPost(post({method:"paypal",amountCents,destination:"legacy@example.com"}));
     expect(res.status).toBe(400);expect(await res.json()).toEqual({error:"invalid_method"});
     expect(mockedRequest).not.toHaveBeenCalled();
   });

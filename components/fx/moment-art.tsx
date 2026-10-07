@@ -30,7 +30,7 @@ export function MomentArt({ compact = false }: { compact?: boolean }) {
         <span>SURVEYS / OFFERS / POSSIBILITIES</span>
       </div>
       <div className={styles.coin}>
-        <span>REVOLUT / PAYPAL — FROM</span>
+        <span>REVOLUT — FROM</span>
         <strong>
           <small>$</small>
           {(PAYOUT_RULES.revolut.minimumCents / 100).toFixed(2)}
@@ -57,7 +57,7 @@ export function MomentArt({ compact = false }: { compact?: boolean }) {
       <div className={styles.method}>
         <Icon name="wallet" size={20} />
         <span>
-          Revolut <b>+</b> PayPal
+          Revolut <b>/</b> Revtag
         </span>
         <span>↗</span>
       </div>

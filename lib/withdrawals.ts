@@ -4,7 +4,7 @@
  * client use is for UX only (error messages, masking, method metadata).
  */
 
-/** One UI/server rule set. Migration 007 independently enforces these rules in PostgreSQL. */
+/** One UI/server rule set. Migration 008 independently enforces these rules in PostgreSQL. */
 export const PAYOUT_RULES = {
   revolut: {
     enabled: true, minimumCents: 10, label: "Revolut",
@@ -12,9 +12,9 @@ export const PAYOUT_RULES = {
     destinationHint: "Your Revtag, starting with @. Enter it carefully — you are responsible for its accuracy. Not “Revolut Pay”.",
   },
   paypal: {
-    enabled: true, minimumCents: 10, label: "PayPal",
+    enabled: false, minimumCents: null, label: "PayPal",
     destinationLabel: "PayPal email", destinationPlaceholder: "you@example.com",
-    destinationHint: "The operator sends money manually to this email.",
+    destinationHint: "Historical withdrawals only. New PayPal requests are disabled.",
   },
   ltc: {
     enabled: true, minimumCents: 100, label: "Litecoin",
@@ -104,8 +104,6 @@ export function isValidBep20Address(value: unknown): boolean {
 export function isValidDestination(method: unknown, value: unknown): boolean {
   if (!isActiveWithdrawalMethod(method)) return false;
   switch (method) {
-    case "paypal":
-      return isValidEmailDestination(value);
     case "revolut":
       return isValidRevolutDestination(value);
     case "ltc":
@@ -122,7 +120,7 @@ export function isValidDestination(method: unknown, value: unknown): boolean {
 
 export function normalizeDestination(method: ActiveWithdrawalMethod, value: string): string {
   const v = value.trim();
-  return method === "paypal" ? v.toLowerCase() : v;
+  return v;
 }
 
 /** Strict display-string → integer cents ("5", "5.00", "5.5"). Rejects floats-as-text. */

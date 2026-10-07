@@ -34,7 +34,7 @@ export const FAQ_ITEMS: FaqItem[] = [
   },
   {
     q: "How do withdrawals work?",
-    a: `Cash out from just ${centsToUsd(PAYOUT_RULES.revolut.minimumCents)} with Revolut or PayPal. Crypto withdrawals from ${centsToUsd(PAYOUT_RULES.sol.minimumCents)}: Litecoin, SOL, USDC on Solana and USDC on BNB Smart Chain (BEP20). Skrill is limited to historical withdrawals; card payouts are coming soon. Every request is manually reviewed — most within approximately 1 hour, with up to 3 days in exceptional cases. Requested funds are reserved immediately and returned if rejected. One active request per account is allowed at a time. Revolut is our fastest payout option. Review times are estimates, not guarantees.`,
+    a: `Cash out from just ${centsToUsd(PAYOUT_RULES.revolut.minimumCents)} with Revolut. Crypto withdrawals from ${centsToUsd(PAYOUT_RULES.sol.minimumCents)}: Litecoin, SOL, USDC on Solana and USDC on BNB Smart Chain (BEP20). PayPal and Skrill are limited to historical withdrawals; card payouts are coming soon. Every request is manually reviewed — most within approximately 1 hour, with up to 3 days in exceptional cases. Requested funds are reserved immediately and returned if rejected. One active request per account is allowed at a time. Revolut is our fastest payout option. Review times are estimates, not guarantees.`,
   },
   {
     q: "What information do I need to provide?",

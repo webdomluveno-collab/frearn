@@ -10,7 +10,7 @@ import styles from './homepage.module.css';
 
 export const metadata: Metadata = {
   title: 'Freearn — Little moments. Real possibilities.',
-  description: `Discover surveys and offers. Cash out from just ${money(PAYOUT_RULES.revolut.minimumCents)} with Revolut or PayPal. Crypto withdrawals from ${money(PAYOUT_RULES.sol.minimumCents)}.`,
+  description: `Discover surveys and offers. Cash out from just ${money(PAYOUT_RULES.revolut.minimumCents)} with Revolut. Crypto withdrawals from ${money(PAYOUT_RULES.sol.minimumCents)}.`,
 };
 const minimum = money(PAYOUT_RULES.revolut.minimumCents);
 const cryptoMinimum = money(PAYOUT_RULES.sol.minimumCents);
@@ -32,7 +32,7 @@ const steps: { title: string; detail: string; icon: IconName; label: string }[] 
     title: 'Start small. Cash out.',
     label: `FROM ${minimum}`,
     detail:
-      `Revolut or PayPal from ${minimum}; crypto from ${cryptoMinimum}. Only confirmed, available rewards can be withdrawn.`,
+      `Revolut from ${minimum}; crypto from ${cryptoMinimum}. Only confirmed, available rewards can be withdrawn.`,
     icon: 'wallet',
   },
   {
@@ -45,7 +45,7 @@ const steps: { title: string; detail: string; icon: IconName; label: string }[] 
 const faqs = [
   [
     'What is the minimum withdrawal?',
-    `Cash out from just ${minimum} with Revolut or PayPal. Crypto withdrawals from ${cryptoMinimum}. Only confirmed, available rewards can be withdrawn. One active withdrawal request per account is allowed at a time.`,
+    `Cash out from just ${minimum} with Revolut. Crypto withdrawals from ${cryptoMinimum}. Only confirmed, available rewards can be withdrawn. One active withdrawal request per account is allowed at a time.`,
   ],
   [
     'How fast are payouts processed?',
@@ -53,7 +53,7 @@ const faqs = [
   ],
   [
     'Which payout methods can I choose?',
-    'Revolut / Revtag, PayPal, Litecoin, SOL on Solana, USDC on Solana and USDC on BNB Smart Chain (BEP20) are supported. Skrill is available only for historical withdrawals. Revolut is our fastest payout option. Card payouts are coming soon. Check your wallet for availability.',
+    'Revolut / Revtag, Litecoin, SOL on Solana, USDC on Solana and USDC on BNB Smart Chain (BEP20) are supported. PayPal and Skrill are available only for historical withdrawals. Revolut is our fastest payout option. Card payouts are coming soon. Check your wallet for availability.',
   ],
   [
     'Do I need to pay anything?',
@@ -136,7 +136,7 @@ export default function HomePage() {
               <div className={styles.heroBenefits}>
                 <span>
                   <Icon name="wallet" size={19} />
-                  <strong>Cash out from just {minimum} with Revolut or PayPal.</strong>
+                  <strong>Cash out from just {minimum} with Revolut.</strong>
                 </span>
                 <span>
                   <Icon name="clock" size={19} />
@@ -177,7 +177,7 @@ export default function HomePage() {
               <span>Less waiting.</span>
             </h2>
             <p>
-              Cash out from just {minimum} with Revolut or PayPal. Crypto withdrawals from {cryptoMinimum}.
+              Cash out from just {minimum} with Revolut. Crypto withdrawals from {cryptoMinimum}.
               Revolut is our fastest option, with a human check first.
             </p>
             <span className={styles.reviewTag}>
@@ -195,7 +195,7 @@ export default function HomePage() {
               <div>
                 <b>Revolut</b>
                 <span>+</span>
-                <b>PayPal</b>
+                <b>Revtag</b>
                 <span aria-hidden="true">↗</span>
               </div>
             </div>
@@ -324,7 +324,7 @@ export default function HomePage() {
               </h2>
             </div>
             <p>
-              Revolut and PayPal. A small start.
+              Revolut and crypto. A small start.
               <br />
               Revolut is our fastest option. Manual approval for every request.
             </p>
@@ -342,15 +342,15 @@ export default function HomePage() {
                 <Icon name="external" size={20} />
               </div>
             </article>
-            <article className={`${styles.paymentMethod} ${styles.paypal}`}>
-              <span className={styles.methodTag}>SMALL START</span>
+            <article className={`${styles.paymentMethod} ${styles.crypto}`}>
+              <span className={styles.methodTag}>CRYPTO / FROM {cryptoMinimum}</span>
               <div className={styles.paymentSymbol} aria-hidden="true">
-                P
+                <Icon name="wallet" size={37} />
               </div>
-              <h3>PayPal</h3>
-              <p>Manual payments to your PayPal account.</p>
+              <h3>Crypto</h3>
+              <p>LTC (Litecoin), SOL (Solana), USDC (Solana or BEP20).</p>
               <div>
-                <span>From {minimum}</span>
+                <span>From {cryptoMinimum}</span>
                 <Icon name="external" size={20} />
               </div>
             </article>

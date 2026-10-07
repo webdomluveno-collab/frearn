@@ -7,15 +7,16 @@ import { FaqAccordion } from "@/components/fx/faq";
 
 describe("public payout policy copy",()=>{
   const html=renderToStaticMarkup(<Homepage/>);
-  it("qualifies the ten-cent offer with Revolut or PayPal",()=>{
-    expect(html).toContain("Cash out from just $0.10 with Revolut or PayPal.");
+  it("qualifies the ten-cent offer with Revolut",()=>{
+    expect(html).toContain("Cash out from just $0.10 with Revolut.");
     expect(html).toContain("Crypto withdrawals from $1.00");
   });
-  it("keeps Revolut fastest, PayPal manual, card planned and Skrill historical",()=>{
+  it("keeps Revolut fastest, crypto at one dollar and retired methods historical",()=>{
     expect(html).toContain("Revolut is our fastest option");
-    expect(html).toContain("Manual payments to your PayPal account.");
+    expect(html).toContain("LTC (Litecoin), SOL (Solana), USDC (Solana or BEP20).");
+    expect(html).not.toContain("<h3>PayPal</h3>");
     expect(html).toContain("COMING SOON");
-    expect(html).toContain("Skrill is available only for historical withdrawals");
+    expect(html).toContain("PayPal and Skrill are available only for historical withdrawals");
     expect(html).not.toMatch(/fee.free|guaranteed instant|guaranteed within one hour/i);
     expect(html).not.toContain("Revolut and Skrill");
   });

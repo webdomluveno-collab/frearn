@@ -56,8 +56,8 @@ npm run build
 
 ## 5b. Manual withdrawals (live, operator-reviewed)
 
-- Method-specific minima: Revolut / Revtag and PayPal **10 cents ($0.10)**; Litecoin, SOL, USDC (Solana) and USDC (BEP20 / BNB Smart Chain) **100 cents ($1.00)**.
-  `PAYOUT_RULES` in `lib/withdrawals.ts` supplies server and UI values; migration 007 independently enforces the allowlist/minima in the authoritative RPC. Executable PostgreSQL tests check parity.
+- Method-specific minima: Revolut / Revtag **10 cents ($0.10)**; Litecoin, SOL, USDC (Solana) and USDC (BEP20 / BNB Smart Chain) **100 cents ($1.00)**.
+  `PAYOUT_RULES` in `lib/withdrawals.ts` supplies server and UI values; migration 008 independently enforces the allowlist/minima in the authoritative RPC. Executable PostgreSQL tests check parity.
 - `POST /api/withdrawals/request` (session auth, rate-limited): validates
   integer cents, method allowlist, and destination, then calls the atomic RPC.
   Funds are reserved immediately as a pending negative withdrawal ledger row,
@@ -66,12 +66,12 @@ npm run build
 - Rejection refunds exactly once via an immutable zero-amount reversal marker;
   approval confirms the hold. Both admin actions are idempotent
   (`POST /api/admin/withdrawals/[id]/approve|reject`, deny-by-default 404).
-- Active methods: Revolut (@username), PayPal, Litecoin (LTC), SOL, USDC (Solana), USDC (BEP20 / BNB Smart Chain).
-  Skrill is disabled for new requests; historical records still display and can be settled by admins.
+- Active methods: Revolut (@username), Litecoin (LTC), SOL, USDC (Solana), USDC (BEP20 / BNB Smart Chain).
+  PayPal and Skrill are disabled for new requests; historical records still display and can be settled by admins.
   Card is shown as Soon — no card data is ever collected or stored.
 - Destinations are masked in UI/logs; full values live only in
   `withdrawal_requests` (service-role/RLS-protected). Apply migrations through
-  `007_method_specific_withdrawals.sql` before deploying this version.
+  `008_disable_paypal_withdrawals.sql` before deploying this version.
 
 ## 6. How the mock provider works
 
@@ -511,8 +511,8 @@ HMAC payload, then implement verified crediting + reversals.
 - [ ] Support email / domain set (`support@freearn.online` — configured).
 - [ ] No secrets with `NEXT_PUBLIC_` prefix except anon key + URL.
 
-### Withdrawal policy migrations (006 → 007)
+### Withdrawal policy migrations (006 → 007 → 008)
 
-Apply migrations in order through `007_method_specific_withdrawals.sql` before deploying this version. Migration 006 introduced the previous ten-cent policy. Migration 007 supersedes it with method-specific minimums and disables new Skrill requests. Apply `database/migrations/007_method_specific_withdrawals.sql` after 006. The authoritative RPC rejects disabled/unknown methods, enforces 10 cents for Revolut/PayPal and 100 cents for all four crypto methods, and rejects new requests while any requested/reviewing/approved/processing request remains active. Same-key retries return the original request; a key belonging to another user is rejected. Existing requests and settlement accounting are retained.
+Apply migrations in order through `008_disable_paypal_withdrawals.sql` before deploying this version. Migration 006 introduced the previous ten-cent policy. Migration 007 supersedes it with method-specific minimums and disables new Skrill requests. Apply `database/migrations/007_method_specific_withdrawals.sql` after 006. Migration 008 then disables new PayPal requests; apply `database/migrations/008_disable_paypal_withdrawals.sql` after 007. The authoritative RPC rejects disabled/unknown methods, enforces 10 cents for Revolut and 100 cents for all four crypto methods, and rejects new requests while any requested/reviewing/approved/processing request remains active. Same-key retries return the original request; a key belonging to another user is rejected. Existing requests and settlement accounting are retained.
 
-All tests use an isolated PostgreSQL/PGlite instance; running them never changes a live Supabase database. Neither migration changes historical rows.
+All tests use an isolated PostgreSQL/PGlite instance; running them never changes a live Supabase database. These forward migrations do not change historical rows.
