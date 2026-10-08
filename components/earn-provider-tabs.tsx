@@ -84,6 +84,7 @@ export function EarnProviderTabs({ cpxLive }: { cpxLive: boolean }) {
                 tabRefs.current[i] = el;
               }}
               role="tab"
+              aria-label={t.label}
               id={`earn-tab-${t.key}`}
               aria-selected={selected === t.key}
               aria-controls={`earn-panel-${t.key}`}
@@ -92,7 +93,8 @@ export function EarnProviderTabs({ cpxLive }: { cpxLive: boolean }) {
               className={selected === t.key ? "selected" : ""}
             >
               <Icon name={t.key === "surveys" ? "survey" : t.key === "timewall" ? "task" : "game"} size={18} />
-              {t.label}
+              <span className="provider-tab-copy"><strong>{t.label}</strong><small>{t.key === "surveys" ? "Share your perspective" : t.key === "offers" ? "Discover something new" : "Little tasks, more possibilities"}</small></span>
+              <Icon name="chevron" size={17} />
             </button>
           ))}
         </div>
@@ -114,7 +116,8 @@ export function EarnProviderTabs({ cpxLive }: { cpxLive: boolean }) {
             {cpxLive ? (
               <CpxSurveyWall />
             ) : (
-              <div className="surface muted-panel">
+              <div className="surface muted-panel provider-unavailable">
+                <span className="provider-state-symbol" aria-hidden="true"><Icon name="survey" size={30} /></span>
                 <p>
                   <strong>We&apos;re preparing surveys for your region.</strong>
                 </p>

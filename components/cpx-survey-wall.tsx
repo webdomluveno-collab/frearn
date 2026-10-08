@@ -41,7 +41,7 @@ export function CpxSurveyWall() {
 
   if (state.status === "loading") {
     return (
-      <div role="status" aria-label="Loading surveys" aria-busy="true">
+      <div className="provider-loading" role="status" aria-label="Loading surveys" aria-busy="true">
         <div className="skeleton skeleton-row" />
         <div className="skeleton skeleton-row" />
         <div className="skeleton skeleton-row" />

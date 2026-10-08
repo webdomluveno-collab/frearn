@@ -38,35 +38,38 @@ export default async function DashboardOverview() {
           <TallyMark size={36} />
         </span>
       </div>
-      <section className="money-rail" aria-label="Your balances">
-        <div className="money-available">
-          <span>Available balance</span>
-          <strong>
-            {centsToUsd(s.availableCents)} <small>USD</small>
-          </strong>
+      <section className="dashboard-money" aria-label="Your balances">
+        <div className="balance-card">
+          <span className="eyebrow"><Icon name="wallet" size={17} />AVAILABLE TO WITHDRAW</span>
+          <strong className="balance-amount">{centsToUsd(s.availableCents)} <small>USD</small></strong>
+          <p>Confirmed rewards. Ready for your next little move.</p>
+          <div className="balance-actions">
+            <ButtonLink href="/dashboard/wallet" variant="lime">
+              {s.availableCents < siteConfig.withdrawalsFromCents
+                ? `Withdraw from ${centsToUsd(siteConfig.withdrawalsFromCents)}`
+                : "Withdraw rewards"}
+              <Icon name="external" size={17} />
+            </ButtonLink>
+            <ButtonLink href="/dashboard/earn" variant="ghost">Explore Earn <Icon name="chevron" size={17} /></ButtonLink>
+          </div>
+          <div className="balance-decoration" aria-hidden="true"><i /><i /><i /></div>
         </div>
-        <div>
-          <span>Pending</span>
-          <strong>{centsToUsd(s.pendingCents)}</strong>
-          <small>Awaiting confirmation</small>
-        </div>
-        <div>
-          <span>Lifetime earnings</span>
-          <strong>{centsToUsd(s.lifetimeCents)}</strong>
-          <small>Confirmed over time</small>
-        </div>
-        <div>
-          <ButtonLink href="/dashboard/wallet" variant="secondary" className="full-width">
-            {s.availableCents < siteConfig.withdrawalsFromCents
-              ? `Withdraw from ${centsToUsd(siteConfig.withdrawalsFromCents)}`
-              : "Withdraw rewards"}
-          </ButtonLink>
-          <small>Revolut / native crypto from {centsToUsd(PAYOUT_RULES.revolut.minimumCents)} · Other crypto / Skrill from {centsToUsd(PAYOUT_RULES.sol.minimumCents)} (Skrill fees deducted)</small>
-          <Link href="/dashboard/wallet" className="money-history-link">
-            See wallet &amp; history ↗
-          </Link>
+        <div className="balance-summary">
+          <div className="summary-card summary-pending">
+            <span className="summary-icon"><Icon name="clock" size={22} /></span>
+            <div><span>Pending rewards</span><strong>{centsToUsd(s.pendingCents)}</strong><p>Awaiting confirmation</p></div>
+          </div>
+          <div className="summary-card summary-lifetime">
+            <span className="summary-icon"><Icon name="reward" size={22} /></span>
+            <div><span>Lifetime earnings</span><strong>{centsToUsd(s.lifetimeCents)}</strong><p>Confirmed over time</p></div>
+          </div>
         </div>
       </section>
+      <div className="payout-reminder">
+        <span className="reminder-icon"><Icon name="wallet" size={20} /></span>
+        <p>Small minimum. A clear next step.<small>Revolut / native crypto from {centsToUsd(PAYOUT_RULES.revolut.minimumCents)} · Other crypto / Skrill from {centsToUsd(PAYOUT_RULES.sol.minimumCents)} (Skrill fees deducted)</small></p>
+        <Link href="/dashboard/wallet" className="text-link">See wallet &amp; history <Icon name="external" size={16} /></Link>
+      </div>
       <section className="opportunity-section">
         <div className="section-title">
           <div>

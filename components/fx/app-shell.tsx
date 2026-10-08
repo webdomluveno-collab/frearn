@@ -10,7 +10,7 @@ import { SignOutButton } from "../sign-out-button";
 import { centsToUsd } from "@/lib/money";
 
 const navigation: { href: string; label: string; icon: IconName }[] = [
-  { href: "/dashboard", label: "Overview", icon: "home" },
+  { href: "/dashboard", label: "Dashboard", icon: "home" },
   { href: "/dashboard/earn", label: "Earn", icon: "spark" },
   { href: "/dashboard/wallet", label: "Wallet", icon: "wallet" },
   { href: "/dashboard/transactions", label: "Activity", icon: "activity" },
@@ -45,7 +45,7 @@ export function FxAppShell({
         Skip to content
       </a>
       <aside className="sidebar">
-        <Brand light />
+        <Brand />
         <div className="sidebar-caption">YOUR TIME ADDS UP</div>
         <nav aria-label="Main navigation" className="side-nav">
           {navigation.map((item) => (
@@ -86,7 +86,7 @@ export function FxAppShell({
           <div className="breadcrumb">
             <span>My Freearn</span>
             <span className="breadcrumb-divider">/</span>
-            <strong>{current?.label ?? "Overview"}</strong>
+            <strong>{current?.label ?? "Dashboard"}</strong>
           </div>
           <form
             className="header-search"
@@ -106,11 +106,19 @@ export function FxAppShell({
           </form>
           <div className="header-actions">
             <Link href="/dashboard/wallet" className="mobile-balance">
-              {centsToUsd(availableCents)}
+              <Icon name="wallet" size={16} />
+              <span>{centsToUsd(availableCents)}</span>
             </Link>
-            <Link className="avatar" href="/dashboard/profile" aria-label={`${email}'s account`}>
-              {initial}
-            </Link>
+            <details className="account-menu">
+              <summary aria-label="Account menu" className="avatar">{initial}</summary>
+              <div className="account-menu-panel">
+                <span className="eyebrow">YOUR ACCOUNT</span>
+                <p>{email}</p>
+                <Link className="nav-link" href="/dashboard/profile"><Icon name="settings" />Profile</Link>
+                <Link className="nav-link" href="/dashboard/settings"><Icon name="lock" />Settings</Link>
+                <SignOutButton />
+              </div>
+            </details>
           </div>
         </header>
         <main id="main" className="main-content" tabIndex={-1}>

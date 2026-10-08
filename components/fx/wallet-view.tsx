@@ -33,6 +33,20 @@ export interface WithdrawalListItem {
   createdAt: string;
 }
 
+const METHOD_NETWORK: Record<ActiveWithdrawalMethod, string> = {
+  revolut: "Revtag · Fastest option",
+  cfx: "Conflux Core Space · Native",
+  rvn: "Ravencoin · Native",
+  "0g": "0G mainnet · Native",
+  iotx: "IoTeX mainnet · Native",
+  xno: "Nano · Native",
+  ltc: "Litecoin mainnet",
+  sol: "Solana",
+  usdc_solana: "Solana network",
+  usdc_bep20: "BNB Smart Chain · BEP20",
+  skrill: "Email · Transfer fee deducted",
+};
+
 const ERROR_COPY: Record<string, string> = {
   invalid_amount: "Enter a positive USD amount with up to two decimal places.",
   pending_withdrawal: "You already have a withdrawal under review. Wait until it is paid or rejected.",
@@ -126,7 +140,7 @@ function WithdrawalForm({ availableCents, onDone }: { availableCents: number; on
 
   if (stage === "review" && cents !== null) {
     return (
-      <div className="surface settings-panel" aria-live="polite">
+      <div className="surface settings-panel withdrawal-panel" aria-live="polite">
         <div className="settings-panel-heading">
           <h2>Check your request</h2>
           <p className="muted small">Funds are reserved only when you confirm.</p>
@@ -169,7 +183,7 @@ function WithdrawalForm({ availableCents, onDone }: { availableCents: number; on
 
   return (
     <form
-      className="surface settings-panel"
+      className="surface settings-panel withdrawal-panel"
       onSubmit={review}
       aria-label="Request a withdrawal"
       noValidate
@@ -213,7 +227,8 @@ function WithdrawalForm({ availableCents, onDone }: { availableCents: number; on
             <button
               key={m}
               type="button"
-              className={method === m ? "selected" : ""}
+              className={`payout-method ${method === m ? "selected" : ""} ${m === "revolut" ? "payout-revolut" : ""}`}
+              aria-label={WITHDRAWAL_METHOD_META[m].label}
               aria-pressed={method === m}
               onClick={() => {
                 setMethod(m);
@@ -222,11 +237,15 @@ function WithdrawalForm({ availableCents, onDone }: { availableCents: number; on
                   ? `${WITHDRAWAL_METHOD_META[m].label} minimum is ${centsToUsd(WITHDRAWAL_METHOD_META[m].minimumCents)}.` : null);
               }}
             >
-              {WITHDRAWAL_METHOD_META[m].label}
+              <span className="method-top"><span className="method-mark" aria-hidden="true">{m === "revolut" ? "R" : m === "skrill" ? "S" : m === "ltc" ? "LTC" : m === "usdc_solana" || m === "usdc_bep20" ? "USDC" : m.toUpperCase()}</span><span className="method-choice" aria-hidden="true">{method === m && <Icon name="check" size={12} />}</span></span>
+              <strong>{WITHDRAWAL_METHOD_META[m].label}</strong>
+              <span className="method-network">{METHOD_NETWORK[m]}</span>
+              <span className="method-minimum">Minimum {centsToUsd(WITHDRAWAL_METHOD_META[m].minimumCents)}</span>
             </button>
           ))}
-          <button type="button" disabled title="No card payout provider integrated yet">
-            Card — Coming soon
+          <button type="button" className="payout-method payout-planned" disabled aria-label="Card — Coming soon" title="Card payouts are not available yet">
+            <span className="method-top" aria-hidden="true"><span className="method-mark"><Icon name="wallet" size={19} /></span><Icon name="clock" size={16} /></span>
+            <strong>Card</strong><span className="method-network">Another way on the horizon</span><span className="method-minimum">Coming soon</span>
           </button>
         </div>
       </div>
@@ -314,6 +333,7 @@ export function WalletView({
           <strong className="wallet-total">{centsToUsd(availableCents)}</strong>
           <p>Confirmed rewards, minus any reserved withdrawals.</p>
           <span className="wallet-currency">USD</span>
+          <div className="balance-decoration" aria-hidden="true"><i /><i /><i /></div>
         </section>
         <section className="wallet-stat">
           <span className="wallet-stat-icon">

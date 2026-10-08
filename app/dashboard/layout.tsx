@@ -1,3 +1,4 @@
+import "../fx/authenticated.css";
 import { redirect } from "next/navigation";
 import { getSessionUser } from "@/lib/auth/server";
 import { getMyLedger } from "@/lib/db/wallet";

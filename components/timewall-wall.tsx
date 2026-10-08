@@ -46,7 +46,7 @@ export function TimewallWall() {
 
   if (state.status === "loading") {
     return (
-      <div role="status" aria-label="Loading tasks" aria-busy="true">
+      <div className="provider-loading" role="status" aria-label="Loading tasks" aria-busy="true">
         <div className="skeleton skeleton-row" />
         <div className="skeleton skeleton-row" />
         <div className="skeleton skeleton-row" />
@@ -68,7 +68,7 @@ export function TimewallWall() {
   }
 
   return (
-    <div className="surface muted-panel">
+    <div className="surface muted-panel provider-ready">
       <p>
         <strong>Your personal TimeWall is ready.</strong>
       </p>
