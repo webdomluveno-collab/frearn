@@ -17,5 +17,8 @@
     "paths": { "@/*": ["./*"] }
   },
   "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts"],
-  "exclude": ["node_modules"]
+  // supabase/functions/notify-signup/index.ts runs on the Deno Edge runtime
+  // (Deno-style `.ts` extension import); it is type-checked at deploy time by
+  // `supabase functions deploy`, not by the Next.js toolchain.
+  "exclude": ["node_modules", "supabase/functions/notify-signup/index.ts"]
 }

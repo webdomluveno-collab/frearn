@@ -75,33 +75,47 @@ npm run build
 
 ## 5c. Telegram signup notifications (optional, fire-and-forget)
 
-- An `AFTER INSERT` trigger on `auth.users` (`database/migrations/010_telegram_signup_notify.sql`)
-  sends one Telegram Bot API message per new auth user via `pg_net` (async —
-  never blocks signup). Any failure is swallowed, so notifications can never
-  break registration. Re-logins, email confirmations, and edits are `UPDATE`s
-  and never re-fire; no Edge Function and no public endpoint are involved.
-- **Secrets live ONLY in Supabase Vault** (names `telegram_bot_token`,
-  `telegram_chat_id`). Nothing secret is in the repo, the migration, or any
-  client code. Insert them manually as the database owner (Supabase Dashboard
-  → SQL editor) — never commit the values:
-  ```sql
-  select vault.create_secret('<TELEGRAM_BOT_TOKEN>', 'telegram_bot_token');
-  select vault.create_secret('<TELEGRAM_CHAT_ID>', 'telegram_chat_id');
-  ```
+- An `AFTER INSERT` trigger on `auth.users`
+  (`database/migrations/010_telegram_signup_notify.sql`) relays one signed
+  event per new auth user to the `notify-signup` Edge Function via `pg_net`
+  (async — never blocks signup). The Edge Function verifies the event and
+  calls the Telegram Bot API. Works for signups from any client; re-logins,
+  confirmations, and edits are `UPDATE`s and never re-fire. Any failure
+  anywhere in the chain is swallowed, so notifications can never break
+  registration.
+- **Why a relay instead of direct Postgres→Telegram:** calling the Bot API
+  from SQL would store the bot token inside the `pg_net` request-queue URL.
+  Here Postgres holds NO Telegram credentials: it signs a minimal event
+  (`user_id`, minute-precision UTC timestamp, confirmation flag, fresh nonce)
+  with a Vault-held HMAC-SHA256 key (pure-SQL RFC 4231 implementation, no
+  pgcrypto needed). Only the Edge Function ever touches the Telegram API, and
+  the endpoint accepts no static token — only a time-limited (±5 min),
+  single-use-nonce signature.
+- **Secrets (two separate stores, never in repo/SQL/client):**
+  - Supabase Vault (DB owner via Dashboard → SQL editor):
+    `notify_signing_secret` (`openssl rand -hex 32`) and `notify_function_url`
+    (the deployed function URL, e.g. `https://<ref>.supabase.co/functions/v1/notify-signup`).
+  - Edge Function secrets (`supabase secrets set`): `NOTIFY_SIGNING_SECRET`
+    (**same value** as the Vault signing secret), `TELEGRAM_BOT_TOKEN`
+    (from @BotFather), `TELEGRAM_CHAT_ID` (private chat id).
 - Prerequisites (Dashboard → Database → Extensions): `pg_net` and
-  `supabase_vault`. Without them (or without the Vault secrets) the trigger
+  `supabase_vault`. Without them (or without the Vault entries) the trigger
   is a silent no-op.
-- Apply `database/migrations/010_telegram_signup_notify.sql` in the SQL editor
-  to enable. Message format (plain text, honest confirmation status):
-  `🎉 New Freearn registration!` / `👤 A new user has signed up` /
-  `📅 <UTC timestamp>` / `✉️ Email confirmed: Yes|No — not confirmed yet`.
+- Deploy: apply `database/migrations/010_telegram_signup_notify.sql` in the
+  SQL editor, then `supabase functions deploy notify-signup --no-verify-jwt`
+  (JWT verification is off because the HMAC signature *is* the auth).
+- Message format (built by the Edge Function, plain text, honest
+  confirmation status): `🎉 New Freearn registration!` /
+  `👤 A new user has signed up` / `📅 <UTC timestamp>` /
+  `✉️ Email confirmed: Yes|No — not confirmed yet`.
   No email address, no statistics, no testimonials.
 - Test safely: `npm test -- database/telegram-signup-notify.test.ts` runs the
-  real trigger logic in-memory (PGlite, stubbed Vault/HTTP, dummy secrets).
-  Then, on a staging project: apply the migration, insert real Vault secrets,
+  real trigger + SQL HMAC in-memory (PGlite, stubbed Vault/HTTP, dummy
+  secrets), including SQL↔TypeScript signature agreement. Then, on a staging
+  project: apply the migration, deploy the function, set real secrets,
   sign up with a disposable address, confirm the message arrives and the
-  account works; repeat with a wrong chat id to prove signup still succeeds.
-  Only then apply + configure production the same way.
+  account works; repeat with a wrong chat id and with a tampered signature
+  (expect silent 401, signup unaffected). Only then repeat in production.
 
 ## 6. How the mock provider works
 
