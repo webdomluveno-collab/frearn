@@ -73,6 +73,36 @@ npm run build
   `withdrawal_requests` (service-role/RLS-protected). Apply migrations through
   `009_native_crypto_and_skrill.sql` before deploying this version.
 
+## 5c. Telegram signup notifications (optional, fire-and-forget)
+
+- An `AFTER INSERT` trigger on `auth.users` (`database/migrations/010_telegram_signup_notify.sql`)
+  sends one Telegram Bot API message per new auth user via `pg_net` (async —
+  never blocks signup). Any failure is swallowed, so notifications can never
+  break registration. Re-logins, email confirmations, and edits are `UPDATE`s
+  and never re-fire; no Edge Function and no public endpoint are involved.
+- **Secrets live ONLY in Supabase Vault** (names `telegram_bot_token`,
+  `telegram_chat_id`). Nothing secret is in the repo, the migration, or any
+  client code. Insert them manually as the database owner (Supabase Dashboard
+  → SQL editor) — never commit the values:
+  ```sql
+  select vault.create_secret('<TELEGRAM_BOT_TOKEN>', 'telegram_bot_token');
+  select vault.create_secret('<TELEGRAM_CHAT_ID>', 'telegram_chat_id');
+  ```
+- Prerequisites (Dashboard → Database → Extensions): `pg_net` and
+  `supabase_vault`. Without them (or without the Vault secrets) the trigger
+  is a silent no-op.
+- Apply `database/migrations/010_telegram_signup_notify.sql` in the SQL editor
+  to enable. Message format (plain text, honest confirmation status):
+  `🎉 New Freearn registration!` / `👤 A new user has signed up` /
+  `📅 <UTC timestamp>` / `✉️ Email confirmed: Yes|No — not confirmed yet`.
+  No email address, no statistics, no testimonials.
+- Test safely: `npm test -- database/telegram-signup-notify.test.ts` runs the
+  real trigger logic in-memory (PGlite, stubbed Vault/HTTP, dummy secrets).
+  Then, on a staging project: apply the migration, insert real Vault secrets,
+  sign up with a disposable address, confirm the message arrives and the
+  account works; repeat with a wrong chat id to prove signup still succeeds.
+  Only then apply + configure production the same way.
+
 ## 6. How the mock provider works
 
 - `lib/providers/mock.ts` returns 3 clearly-labeled demo opportunities.
