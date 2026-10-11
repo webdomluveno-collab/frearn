@@ -9,8 +9,18 @@ import { centsToUsd as money } from '@/lib/money';
 import styles from './homepage.module.css';
 
 export const metadata: Metadata = {
-  title: 'Freearn — Little moments. Real possibilities.',
-  description: `Discover surveys and offers. Cash out from just ${money(PAYOUT_RULES.revolut.minimumCents)} with Revolut. Native CFX, RVN, 0G, IOTX and XNO withdrawals from ${money(PAYOUT_RULES.cfx.minimumCents)}. Other crypto from ${money(PAYOUT_RULES.sol.minimumCents)}.`,
+  title: 'Freearn | Earn Rewards from Surveys & Online Offers',
+  description: `Earn money online with paid surveys and online rewards. Cash out from just ${money(PAYOUT_RULES.revolut.minimumCents)} with Revolut. Native CFX, RVN, 0G, IOTX and XNO survey rewards from ${money(PAYOUT_RULES.cfx.minimumCents)}. Other crypto from ${money(PAYOUT_RULES.sol.minimumCents)}. Manual review before every payout.`,
+  alternates: { canonical: '/' },
+  openGraph: {
+    type: 'website',
+    title: 'Freearn | Earn Rewards from Surveys & Online Offers',
+    url: '/',
+  },
+  twitter: {
+    card: 'summary',
+    title: 'Freearn | Earn Rewards from Surveys & Online Offers',
+  },
 };
 const minimum = money(PAYOUT_RULES.revolut.minimumCents);
 const cryptoMinimum = money(PAYOUT_RULES.sol.minimumCents);
@@ -98,8 +108,32 @@ function JoinLink({
   );
 }
 export default function HomePage() {
+  const jsonLd = {
+    '@context': 'https://schema.org',
+    '@graph': [
+      {
+        '@type': 'Organization',
+        name: 'Freearn',
+        url: 'https://freearn.online',
+        description:
+          'Freearn lets users earn rewards by completing surveys and online offers, with low minimum withdrawals and manual review before every payout.',
+      },
+      {
+        '@type': 'WebSite',
+        name: 'Freearn',
+        url: 'https://freearn.online',
+        inLanguage: 'en',
+        description:
+          `Earn money online with paid surveys and online rewards. Cash out from just ${money(PAYOUT_RULES.revolut.minimumCents)}.`,
+      },
+    ],
+  };
   return (
     <HomepageMotion>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+      />
       <a className={styles.skip} href="#home-main">
         Skip to content
       </a>

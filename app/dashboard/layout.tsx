@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import "../fx/authenticated.css";
 import { redirect } from "next/navigation";
 import { getSessionUser } from "@/lib/auth/server";
@@ -8,6 +9,9 @@ import { displayName } from "@/lib/fx";
 
 // Authenticated screens must be evaluated per request, including builds without local credentials.
 export const dynamic = "force-dynamic";
+
+// Private user data: keep the whole authenticated area out of search indexes.
+export const metadata: Metadata = { robots: { index: false, follow: false } };
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
   const user = await getSessionUser();

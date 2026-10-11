@@ -13,6 +13,7 @@ export function Footer() {
       <div>
         <Link href="/login">Log in</Link>
         <Link href="/faq">FAQ</Link>
+        <Link href="/earn-money-online-india">Earn in India</Link>
         <Link href="/contact">Contact</Link>
         <Link href="/privacy">Privacy</Link>
         <Link href="/terms">Terms</Link>

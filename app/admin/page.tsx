@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { centsToUsd } from "@/lib/money";
@@ -5,6 +6,9 @@ import { getSessionUser, isAdminEmail, isSupabaseConfigured } from "@/lib/auth/s
 import { getCpxAdminStats } from "@/lib/db/cpx-store";
 import { listPendingWithdrawals } from "@/lib/db/withdrawals";
 import { AdminWithdrawalActions } from "@/components/admin-withdrawals";
+
+// Internal operator tooling: never index.
+export const metadata: Metadata = { robots: { index: false, follow: false } };
 
 // Authenticated screens must be evaluated per request, including builds without local credentials.
 export const dynamic = "force-dynamic";
