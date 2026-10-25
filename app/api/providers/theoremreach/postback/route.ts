@@ -2,14 +2,19 @@ import { NextResponse } from "next/server";
 import { rateLimit } from "@/lib/rate-limit";
 import {
   isTheoremreachPostbackEnabled,
+  isTheoremreachRewardProcessingEnabled,
   theoremreachCallbackUrlWithoutHash,
+  theoremreachCallbackHash,
   verifyTheoremreachCallbackHash,
 } from "@/lib/providers/theoremreach/server";
+import { processTheoremreachCallback } from "@/lib/providers/theoremreach/process";
+import { SupabaseTheoremreachStore } from "@/lib/db/theoremreach-store";
 import {
   callbackTxId,
   intendedPublisherCents,
   intendedUserCents,
   isDebugTrue,
+  isReversalTrue,
   isUuid,
   readCallbackFields,
 } from "@/lib/providers/theoremreach/shared";
@@ -17,11 +22,9 @@ import {
 /**
  * TheoremReach postback — PHASE 1 (testing only).
  *
- * - debug=true → 200 "1" with ZERO writes (no ledger, no provider event,
- *   no reversal, no fraud flag, no profile mutation).
- * - Every non-debug callback FAILS CLOSED (403 "0"): only correctly signed
- *   URLs pass verification, but Phase 1 has no credit/reversal path. No callback
- *   is persisted.
+ * - Every callback is authenticated before the database store is constructed.
+ * - debug=true → 200 "1" with ZERO writes.
+ * - Financial processing has a second, default-off server feature flag.
  * - `status` is deprecated and never consulted.
  * - Nothing is logged: callback values may contain identity and amounts.
  */
@@ -57,19 +60,43 @@ export async function GET(req: Request) {
   if (typeof f.hash !== "string" || f.hash === "") return fail(400);
   if (callbackTxId(f) === null) return fail(400);
 
-  // Value shapes use the documented mapping helpers for VALIDATION ONLY.
-  // These helpers can never write money — there is no credit path in Phase 1.
-  const reward = Number(f.rewardRaw);
-  const currency = Number(f.currencyRaw);
-  if (intendedUserCents(reward) === null) return fail(400);
-  if (intendedPublisherCents(currency) === null) return fail(400);
+  if (f.reversalRaw !== null && f.reversalRaw !== "true" && f.reversalRaw !== "false") return fail(400);
 
-  // Verify before interpreting this as a trusted provider event. Even a valid
-  // callback remains disabled until reward and reversal processing is released.
+  // Signature covers the exact canonical URL before any DB client/store exists.
   if (!verifyTheoremreachCallbackHash(unsignedCallbackUrl, f.hash)) return fail(403);
 
-  // Phase 1: verified, but deliberately no financial or audit writes.
-  return fail(403);
+  const reversal = isReversalTrue(f.reversalRaw);
+  const userRewardCents = intendedUserCents(f.rewardRaw);
+  const publisherRevenueCents = intendedPublisherCents(f.currencyRaw);
+  if (userRewardCents === null || publisherRevenueCents === null) return fail(400);
+
+  // This separate gate defaults off, even if callback signature verification
+  // is enabled for a non-money test. Do not enable it in production in Phase 2.
+  if (!isTheoremreachRewardProcessingEnabled()) return fail(403);
+
+  try {
+    const outcome = await processTheoremreachCallback(new SupabaseTheoremreachStore(), {
+      txId: callbackTxId(f)!,
+      userId: f.userId,
+      reversal,
+      userRewardCents,
+      publisherRevenueCents,
+    });
+    switch (outcome.outcome) {
+      case "rewarded":
+      case "reversed":
+      case "duplicate":
+        return ok();
+      case "orphan_reversal":
+        // Retryable: a valid original transaction may still arrive first.
+        return fail(409);
+      case "rejected":
+        return fail(422);
+    }
+  } catch {
+    // Avoid logging signed callback contents or database error details.
+    return fail(500);
+  }
 }
 
 export async function POST() {

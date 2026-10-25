@@ -516,7 +516,8 @@ End-to-end (needs Supabase keys + `TIMEWALL_POSTBACK_SECRET` in `.env.local`):
   (TheoremReach appends all parameters itself — keep the endpoint clean).
 - Env (all server-only, never `NEXT_PUBLIC_`): `THEOREMREACH_API_KEY`,
   `THEOREMREACH_SECRET_KEY`, `THEOREMREACH_POSTBACK_ENABLED`,
-  `THEOREMREACH_PLACEMENT_ID` (see `.env.example`).
+  `THEOREMREACH_PLACEMENT_ID`, and the separate, default-off
+  `THEOREMREACH_REWARD_PROCESSING_ENABLED` money-write gate (see `.env.example`).
 
 ### 11b.3 Intended money model (DOCUMENTED ONLY — disabled)
 
@@ -539,19 +540,38 @@ End-to-end (needs Supabase keys + `TIMEWALL_POSTBACK_SECRET` in `.env.local`):
 - `status` is deprecated and never consulted. Hash verification does not
   enable ledger writes: valid non-debug callbacks still return `403` in Phase 1.
 
-### 11b.5 Explicitly disabled in Phase 1
+### 11b.5 Safe Phase 2 code path — still disabled in production
 
-Reward crediting, reversal debiting, Earn tab/card/iframe exposure, and any
-ledger or provider-event writes for TheoremReach. Tests pin all of these.
+The server-side Phase 2 processor is prepared behind
+`THEOREMREACH_REWARD_PROCESSING_ENABLED`, which is off unless explicitly set
+to the exact string `true`. This is separate from
+`THEOREMREACH_POSTBACK_ENABLED`: enabling callback verification alone cannot
+construct the Supabase store or write ledger/provider-event rows. Keep the
+reward gate unset/false until the activation criteria below are met. The Earn
+tab/card/iframe remains absent.
+
+Reward credits are deduplicated by `tx_id` with existing provider-event,
+ledger idempotency and the unique `(provider, provider_transaction_id, type)`
+constraint. A reversal debits only the confirmed original `survey_reward`
+with the same provider `tx_id` and `user_id`, using the stored original amount;
+missing originals, user mismatch, amount mismatch and repeated reversals do
+not create another debit. The original reward and reversal remain immutable
+ledger entries.
+
+**Reversal delivery still needs provider confirmation:** the dashboard can
+show `reversal=true` for Reward Callback, while TheoremReach's public FAQ says
+reversals are delivered through a separate Event Webhook, not the Reward
+Callback. The Event Webhook is not implemented here. Until TheoremReach confirms
+the dashboard callback behavior and its test payload, leave the processing
+gate off; orphan reversals are acknowledged as retryable and never debit.
 
 ### 11b.6 Exact next step (Phase 2)
 
 The dashboard currently reports Live and does not allow Test Server Callback.
-Before any reward release, obtain a provider-approved callback sample or test
-placement and verify its exact query URL against the pinned HMAC vector without
-writing money. Then implement transaction-id idempotency and verified credits.
-Handle reversals through a separately verified Event Webhook, not an assumed
-Reward Callback parameter, and test retries/replays before considering launch.
+Obtain a provider-approved callback/reversal sample or staging placement, verify
+it against the pinned HMAC vector, and resolve Reward Callback versus Event
+Webhook reversal delivery. Then review nonce/event/ledger idempotency and only
+enable the separate reward gate in a separately approved deployment.
 
 ## 12. Security considerations before production
 

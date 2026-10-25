@@ -44,6 +44,11 @@ export function isTheoremreachPostbackEnabled(): boolean {
   return secretKey() !== null && process.env.THEOREMREACH_POSTBACK_ENABLED === "true";
 }
 
+/** Separate money-moving gate. Unset/false keeps verified callbacks write-free. */
+export function isTheoremreachRewardProcessingEnabled(): boolean {
+  return process.env.THEOREMREACH_REWARD_PROCESSING_ENABLED === "true";
+}
+
 /**
  * Wall/entry availability. Fail closed unless every value required for a
  * safe signed entry URL exists. Reads env directly (never expose the secret

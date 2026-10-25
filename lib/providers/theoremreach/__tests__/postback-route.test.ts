@@ -173,7 +173,9 @@ describe("GET /api/providers/theoremreach/postback — Phase 1 (no money moves)"
         { reward: "abc", currency: "1.00" },
         { reward: "70", currency: "xyz" },
       ]) {
-        const res = await GET(get(live({ tx_id: `t-${params.reward}`, ...params })));
+        // Use signedLive so the hash matches; otherwise hash check fails first
+        const signed = signedLive({ reward: params.reward, currency: params.currency });
+        const res = await GET(get(signed));
         expect(res.status).toBe(400);
       }
     } finally {

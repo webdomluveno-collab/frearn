@@ -62,8 +62,9 @@ describe("TheoremReach Phase 1 writes no money", () => {
     }
   });
 
-  it("no credit/debit outcome vocabulary in TheoremReach runtime files", () => {
-    for (const f of OWN) {
+  it("no credit/debit outcome vocabulary in non-route TheoremReach files", () => {
+    const nonRoute = OWN.filter(f => !f.endsWith("postback/route.ts"));
+    for (const f of nonRoute) {
       const code = `${f}: ${codeWithoutComments(f)}`;
       expect(code).not.toMatch(/"credited"|"reversed"|:reward|:reversal/);
     }

@@ -88,20 +88,32 @@ export function callbackTxId(f: Pick<TheoremreachCallbackFields, "txId" | "trans
  * 49¢). Only positive integers within cap are creditable.
  */
 export const THEOREMREACH_MAX_REWARD_CENTS = 1_000_000;
+/** publisher_revenue_cents is a PostgreSQL int in the existing ledger schema. */
+export const THEOREMREACH_MAX_PUBLISHER_CENTS = 2_147_483_647;
 
 export function intendedUserCents(reward: unknown): number | null {
-  if (typeof reward !== "number" || !Number.isFinite(reward)) return null;
-  if (!Number.isInteger(reward) || reward <= 0 || reward > THEOREMREACH_MAX_REWARD_CENTS) return null;
-  return reward;
+  const value = typeof reward === "string" && /^\d+$/.test(reward) ? Number(reward) : reward;
+  if (typeof value !== "number" || !Number.isSafeInteger(value)) return null;
+  if (value <= 0 || value > THEOREMREACH_MAX_REWARD_CENTS) return null;
+  return value;
+}
+
+export function intendedRewardCents(reward: unknown): number | null {
+  return intendedUserCents(reward);
 }
 
 /**
- * INTENDED Phase 2 mapping (DOCUMENT ONLY): `currency` is publisher USD
- * revenue as a float; stored as integer cents for audit. currency=1.00 → 100.
+ * Parse `currency` publisher USD into PostgreSQL integer cents using exact
+ * decimal string arithmetic and half-up cent rounding. No binary float math.
  */
 export function intendedPublisherCents(currency: unknown): number | null {
-  if (typeof currency !== "number" || !Number.isFinite(currency) || currency < 0) return null;
-  const cents = Math.round(currency * 100);
-  if (!Number.isSafeInteger(cents)) return null;
+  const raw = typeof currency === "string" ? currency : typeof currency === "number" && Number.isFinite(currency) ? String(currency) : null;
+  if (raw === null || !/^\d+(?:\.\d{1,6})?$/.test(raw)) return null;
+  const [whole, fraction = ""] = raw.split(".");
+  if (whole.length > 10) return null;
+  const thousandths = Number(whole) * 1000 + Number((fraction + "000").slice(0, 3));
+  if (!Number.isSafeInteger(thousandths)) return null;
+  const cents = Math.floor((thousandths + 5) / 10);
+  if (!Number.isSafeInteger(cents) || cents > THEOREMREACH_MAX_PUBLISHER_CENTS) return null;
   return cents;
 }

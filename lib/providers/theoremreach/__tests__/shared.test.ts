@@ -2,12 +2,14 @@ import { describe, expect, it } from "vitest";
 import {
   callbackTxId,
   intendedPublisherCents,
+  intendedRewardCents,
   intendedUserCents,
   isDebugTrue,
   isReasonableId,
   isReversalTrue,
   isUuid,
   readCallbackFields,
+  THEOREMREACH_MAX_PUBLISHER_CENTS,
   THEOREMREACH_MAX_REWARD_CENTS,
 } from "../shared";
 
@@ -70,9 +72,10 @@ describe("TheoremReach callback field parsing (Phase 1)", () => {
   });
 });
 
-describe("TheoremReach intended money mapping (DOCUMENT ONLY — Phase 1 writes nothing)", () => {
-  it("reward=70 maps to 70 user cents with NO second multiplier", () => {
+describe("TheoremReach money parsing", () => {
+  it("reward=70 maps verbatim to 70 user cents with NO second multiplier", () => {
     expect(intendedUserCents(70)).toBe(70);
+    expect(intendedUserCents("70")).toBe(70);
     // NOT 49: no 70% reapplication, ever.
     expect(intendedUserCents(70)).not.toBe(49);
   });
@@ -82,15 +85,30 @@ describe("TheoremReach intended money mapping (DOCUMENT ONLY — Phase 1 writes 
     expect(intendedUserCents(0)).toBe(null);
     expect(intendedUserCents(-10)).toBe(null);
     expect(intendedUserCents(NaN)).toBe(null);
-    expect(intendedUserCents("70")).toBe(null);
+    expect(intendedUserCents("70.0")).toBe(null);
+    expect(intendedUserCents("1e3")).toBe(null);
     expect(intendedUserCents(THEOREMREACH_MAX_REWARD_CENTS + 1)).toBe(null);
   });
 
-  it("currency=1.00 maps to 100 publisher cents", () => {
+  it("parses reward as integer cents string", () => {
+    expect(intendedRewardCents("70")).toBe(70);
+    expect(intendedRewardCents(70)).toBe(70);
+    expect(intendedRewardCents("1000000")).toBe(1000000);
+    expect(intendedRewardCents("70.5")).toBe(null);
+  });
+
+  it("parses publisher USD strings with exact half-up cents rounding", () => {
     expect(intendedPublisherCents(1.0)).toBe(100);
     expect(intendedPublisherCents(3.31)).toBe(331);
+    expect(intendedPublisherCents("1.005")).toBe(101);
+    expect(intendedPublisherCents("1.004")).toBe(100);
+    expect(intendedPublisherCents("0.00")).toBe(0);
     expect(intendedPublisherCents(-1)).toBe(null);
+    expect(intendedPublisherCents("-1.00")).toBe(null);
     expect(intendedPublisherCents(NaN)).toBe(null);
-    expect(intendedPublisherCents("1.00")).toBe(null);
+    expect(intendedPublisherCents("1e2")).toBe(null);
+    expect(intendedPublisherCents("1.0000001")).toBe(null);
+    expect(intendedPublisherCents("21474836.48")).toBe(null);
+    expect(intendedPublisherCents("21474836.47")).toBe(THEOREMREACH_MAX_PUBLISHER_CENTS);
   });
 });
