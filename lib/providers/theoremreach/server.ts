@@ -1,6 +1,7 @@
 import "server-only";
 
-import { createHmac, randomUUID } from "node:crypto";
+import { createHmac, randomUUID, timingSafeEqual } from "node:crypto";
+import { siteConfig } from "@/config/site";
 
 /**
  * TheoremReach — SERVER-ONLY. Contains secret handling.
@@ -11,14 +12,15 @@ import { createHmac, randomUUID } from "node:crypto";
  *   Base64-encoded with URL-safe substitutions (+ → -, / → _, strip =,
  *   no newlines). Secret key is used byte-exactly as configured.
  *
- * Deliberately ABSENT: callback signature verification. The exact callback
- * signed payload (fields, order, serialization) is UNPROVEN — the
- * entry-link formula must NOT be assumed for callbacks. Phase 1 therefore
- * fails closed on every non-debug callback. Do not add a verifier without
- * dashboard-observed test vectors.
+ * Reward callback signature: HMAC-SHA1 over the exact canonical callback URL
+ * without its `hash` parameter, Base64URL encoded as above. The canonical
+ * origin comes from site configuration, never from request Host headers.
+ * Signature verification does not enable money processing; Phase 1 remains
+ * fail-closed after a valid signature until a separate reward-processing phase.
  */
 
 export const THEOREMREACH_ENTRY_BASE_URL = "https://theoremreach.com/respondent_entry/direct";
+export const THEOREMREACH_POSTBACK_PATH = "/api/providers/theoremreach/postback";
 
 /** Publisher configuration: $1 USD = 70 app-currency cents. */
 export const THEOREMREACH_EXCHANGE_RATE = 70;
@@ -66,6 +68,86 @@ export function theoremreachEntryHash(urlBeforeHash: string): string {
   const secret = secretKey();
   if (!secret) throw new Error("TheoremReach is not configured (THEOREMREACH_SECRET_KEY).");
   return base64UrlEncode(createHmac("sha1", secret).update(urlBeforeHash, "utf8").digest());
+}
+
+/** Canonical endpoint configured with TheoremReach; never derived from Host. */
+export function theoremreachCallbackEndpoint(): string {
+  const site = new URL(siteConfig.url);
+  return `${site.origin}${THEOREMREACH_POSTBACK_PATH}`;
+}
+
+/**
+ * Rebuild the signed URL from the original raw request target. Preserve raw
+ * query order and value encoding; remove only the single `hash` pair. The
+ * request authority is intentionally discarded in favor of siteConfig.url.
+ */
+export function theoremreachCallbackUrlWithoutHash(requestUrl: string): string | null {
+  let endpoint: URL;
+  try {
+    endpoint = new URL(theoremreachCallbackEndpoint());
+  } catch {
+    return null;
+  }
+
+  const authority = /^https?:\/\/[^/?#]+/i.exec(requestUrl)?.[0];
+  if (!authority) return null;
+  const target = requestUrl.slice(authority.length);
+  if (target.includes("#")) return null;
+  const queryIndex = target.indexOf("?");
+  const path = queryIndex < 0 ? target : target.slice(0, queryIndex);
+  if (path !== endpoint.pathname || queryIndex < 0) return null;
+
+  const rawQuery = target.slice(queryIndex + 1);
+  if (!rawQuery) return null;
+  const names = new Set<string>();
+  const signedPairs: string[] = [];
+  let hashCount = 0;
+  for (const pair of rawQuery.split("&")) {
+    if (!pair) return null;
+    const equalIndex = pair.indexOf("=");
+    const rawName = equalIndex < 0 ? pair : pair.slice(0, equalIndex);
+    const rawValue = equalIndex < 0 ? "" : pair.slice(equalIndex + 1);
+    let name: string;
+    try {
+      name = decodeURIComponent(rawName.replace(/\+/g, " "));
+      decodeURIComponent(rawValue.replace(/\+/g, " "));
+    } catch {
+      return null;
+    }
+    if (!name || names.has(name)) return null;
+    names.add(name);
+    if (name === "hash") {
+      if (equalIndex < 0 || !rawValue) return null;
+      hashCount++;
+    } else {
+      signedPairs.push(pair);
+    }
+  }
+  if (hashCount !== 1) return null;
+  return `${endpoint.origin}${path}${signedPairs.length ? `?${signedPairs.join("&")}` : ""}`;
+}
+
+const CALLBACK_HASH_RE = /^[A-Za-z0-9_-]{27}$/;
+
+/** Calculate the callback URL HMAC using the server-only TheoremReach secret. */
+export function theoremreachCallbackHash(unsignedCallbackUrl: string): string {
+  const secret = secretKey();
+  if (!secret) throw new Error("TheoremReach is not configured (THEOREMREACH_SECRET_KEY).");
+  return base64UrlEncode(createHmac("sha1", secret).update(unsignedCallbackUrl, "utf8").digest());
+}
+
+/** Constant-time comparison of a canonical TheoremReach callback hash. */
+export function verifyTheoremreachCallbackHash(unsignedCallbackUrl: string, suppliedHash: unknown): boolean {
+  if (typeof suppliedHash !== "string" || !CALLBACK_HASH_RE.test(suppliedHash)) return false;
+  const secret = secretKey();
+  if (!secret) return false;
+  const expected = Buffer.from(
+    base64UrlEncode(createHmac("sha1", secret).update(unsignedCallbackUrl, "utf8").digest()),
+    "ascii"
+  );
+  const supplied = Buffer.from(suppliedHash, "ascii");
+  if (expected.length !== supplied.length) return false;
+  return timingSafeEqual(expected, supplied);
 }
 
 export interface BuildEntryInput {

@@ -1,6 +1,10 @@
 import { NextResponse } from "next/server";
 import { rateLimit } from "@/lib/rate-limit";
-import { isTheoremreachPostbackEnabled } from "@/lib/providers/theoremreach/server";
+import {
+  isTheoremreachPostbackEnabled,
+  theoremreachCallbackUrlWithoutHash,
+  verifyTheoremreachCallbackHash,
+} from "@/lib/providers/theoremreach/server";
 import {
   callbackTxId,
   intendedPublisherCents,
@@ -15,10 +19,9 @@ import {
  *
  * - debug=true → 200 "1" with ZERO writes (no ledger, no provider event,
  *   no reversal, no fraud flag, no profile mutation).
- * - Every non-debug callback FAILS CLOSED (403 "0"): the callback signature
- *   payload is unproven, so nothing may be treated as verified. No credit,
- *   no debit, no persistence — an unverified payload must never land in
- *   money/audit structures where it could be mistaken for verified later.
+ * - Every non-debug callback FAILS CLOSED (403 "0"): only correctly signed
+ *   URLs pass verification, but Phase 1 has no credit/reversal path. No callback
+ *   is persisted.
  * - `status` is deprecated and never consulted.
  * - Nothing is logged: callback values may contain identity and amounts.
  */
@@ -41,8 +44,13 @@ export async function GET(req: Request) {
   // stops retrying test traffic) but write absolutely nothing.
   if (isDebugTrue(f.debugRaw)) return ok();
 
+  // Use the configured canonical origin and the unmodified request-target
+  // query. Never sign an origin derived from Host/X-Forwarded-Host.
+  const unsignedCallbackUrl = theoremreachCallbackUrlWithoutHash(req.url);
+  if (!unsignedCallbackUrl) return fail(400);
+
   // Shape validation before any trust decision. Required: reward, currency,
-  // user_id (UUID), hash, plus tx_id or transaction_id (identity unresolved).
+  // user_id (UUID), hash, and tx_id (the unique reward transaction ID).
   if (typeof f.rewardRaw !== "string" || f.rewardRaw === "") return fail(400);
   if (typeof f.currencyRaw !== "string" || f.currencyRaw === "") return fail(400);
   if (!isUuid(f.userId)) return fail(400);
@@ -56,7 +64,11 @@ export async function GET(req: Request) {
   if (intendedUserCents(reward) === null) return fail(400);
   if (intendedPublisherCents(currency) === null) return fail(400);
 
-  // Signature UNPROVEN → fail closed. Never credit, never persist.
+  // Verify before interpreting this as a trusted provider event. Even a valid
+  // callback remains disabled until reward and reversal processing is released.
+  if (!verifyTheoremreachCallbackHash(unsignedCallbackUrl, f.hash)) return fail(403);
+
+  // Phase 1: verified, but deliberately no financial or audit writes.
   return fail(403);
 }
 

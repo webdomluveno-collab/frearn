@@ -496,17 +496,21 @@ End-to-end (needs Supabase keys + `TIMEWALL_POSTBACK_SECRET` in `.env.local`):
   `partner_id` (placement), `hash` = base64url HMAC-SHA1 over the pre-hash URL.
 - Authenticated wall route `GET /api/providers/theoremreach/wall`
   (401 unauthenticated / 503 unconfigured / 200 `{url}` + `private, no-store`).
-- Safe postback endpoint `GET /api/providers/theoremreach/postback`:
+- Fail-closed postback endpoint `GET /api/providers/theoremreach/postback`:
   `debug=true` → `200 "1"` with ZERO writes (no ledger, no provider event,
-  no reversal, no fraud flag); every non-debug callback fails closed
-  (`400` malformed / `403` unverified) and persists nothing.
+  no reversal, no fraud flag); malformed non-debug callbacks return `400`,
+  and every non-debug callback returns `403` with no persistence, even when
+  its signature is valid, until a separate reward-processing phase is approved.
 - Registry entry (`surveyWalls.theoremreach`) gated on api key + secret +
   placement presence. NOT exposed in the Earn UI (no tab, no card, no iframe).
 
 ### 11b.2 Publisher configuration (dashboard)
 
 - Name Freearn, Platform Web, `https://freearn.online`, currency cent/cents,
-  Exchange Rate 70, server-side callbacks, reversals enabled.
+  Exchange Rate 70, server-side callbacks. The dashboard currently shows
+  reversals enabled, but official FAQ says reversals are sent through a
+  separate Event Webhook, not the Reward Callback; reconcile this setting with
+  TheoremReach before launch. Freearn does not yet implement that webhook.
 - Intended Reward Callback URL (enter after Phase 1 is deployed):
   `https://freearn.online/api/providers/theoremreach/postback`
   (TheoremReach appends all parameters itself — keep the endpoint clean).
@@ -522,14 +526,18 @@ End-to-end (needs Supabase keys + `TIMEWALL_POSTBACK_SECRET` in `.env.local`):
 - Pure mapping helpers + unit tests exist in `shared.ts`; no runtime credit
   path reaches them (the postback route writes nothing at all).
 
-### 11b.4 Signature status (UNPROVEN — fail closed)
+### 11b.4 Callback authentication (verified format; financial processing disabled)
 
-- Proven: HMAC-SHA1 + secret, base64url (`+`→`-`, `/`→`_`, strip `=`,
-  no newlines) — for the ENTRY link only.
-- UNPROVEN: the exact callback signed payload (fields/order/serialization).
-  No callback verifier exists on purpose; non-debug callbacks get `403`.
-- `status` is deprecated and never consulted. `tx_id` vs `transaction_id`
-  identity mapping is unresolved — both are captured, `tx_id` preferred.
+- Reward callback hash: HMAC-SHA1 over the full callback URL before `hash` is
+  appended, Base64URL encoded (`+`→`-`, `/`→`_`, strip `=`). An official
+  TheoremReach test vector is pinned in `server.test.ts`.
+- The signed origin is taken from trusted `siteConfig.url`, never the incoming
+  `Host`/`X-Forwarded-Host`; the original raw query order and encoding are kept
+  while removing only the single `hash` pair. Duplicate parameters fail closed.
+- `tx_id` is the unique reward transaction ID. `transaction_id` identifies an
+  entry/session and is optional; it is never used for reward deduplication.
+- `status` is deprecated and never consulted. Hash verification does not
+  enable ledger writes: valid non-debug callbacks still return `403` in Phase 1.
 
 ### 11b.5 Explicitly disabled in Phase 1
 
@@ -538,10 +546,12 @@ ledger or provider-event writes for TheoremReach. Tests pin all of these.
 
 ### 11b.6 Exact next step (Phase 2)
 
-Deploy Phase 1, run the dashboard's entry test (`debug=true`) and Test
-Server Callback, capture the real callback shape + signature test vectors
-safely (dashboard shows them; Freearn logs nothing), prove the callback
-HMAC payload, then implement verified crediting + reversals.
+The dashboard currently reports Live and does not allow Test Server Callback.
+Before any reward release, obtain a provider-approved callback sample or test
+placement and verify its exact query URL against the pinned HMAC vector without
+writing money. Then implement transaction-id idempotency and verified credits.
+Handle reversals through a separately verified Event Webhook, not an assumed
+Reward Callback parameter, and test retries/replays before considering launch.
 
 ## 12. Security considerations before production
 

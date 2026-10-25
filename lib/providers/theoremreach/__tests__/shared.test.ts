@@ -45,9 +45,9 @@ describe("TheoremReach callback field parsing (Phase 1)", () => {
     expect(isReasonableId("<script>")).toBe(false);
   });
 
-  it("prefers tx_id but captures transaction_id (identity unresolved)", () => {
+  it("uses tx_id as the reward identity and never falls back to entry transaction_id", () => {
     expect(callbackTxId({ txId: "tx-1", transactionId: "entry-1" })).toBe("tx-1");
-    expect(callbackTxId({ txId: null, transactionId: "entry-1" })).toBe("entry-1");
+    expect(callbackTxId({ txId: null, transactionId: "entry-1" })).toBe(null);
     expect(callbackTxId({ txId: "", transactionId: null })).toBe(null);
     expect(callbackTxId({ txId: null, transactionId: null })).toBe(null);
   });

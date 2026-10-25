@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { GET, POST } from "@/app/api/providers/theoremreach/postback/route";
+import { theoremreachCallbackEndpoint, theoremreachCallbackHash } from "../server";
 
 const UID = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee";
 const KEY = "test-theoremreach-secret-postback";
@@ -42,6 +43,19 @@ function live(extra: Record<string, string> = {}): string {
   });
 }
 
+function signedLive(extra: Record<string, string> = {}): string {
+  const params = new URLSearchParams({
+    reward: "70",
+    currency: "1.00",
+    user_id: UID,
+    transaction_id: "entry-session-1",
+    tx_id: "reward-transaction-1",
+    ...extra,
+  });
+  const unsignedUrl = `${theoremreachCallbackEndpoint()}?${params.toString()}`;
+  return `${unsignedUrl}&hash=${theoremreachCallbackHash(unsignedUrl)}`;
+}
+
 describe("GET /api/providers/theoremreach/postback — Phase 1 (no money moves)", () => {
   const prev = saveEnv();
   const restore = () => restoreEnv(prev);
@@ -82,12 +96,36 @@ describe("GET /api/providers/theoremreach/postback — Phase 1 (no money moves)"
     }
   });
 
-  it("valid-shape non-debug callback fails closed (signature unproven — never 200)", async () => {
+  it("valid-shape non-debug callback with an invalid hash fails closed", async () => {
     enable();
     try {
       const res = await GET(get(live()));
       expect(res.status).toBe(403);
       expect(await res.text()).toBe("0");
+    } finally {
+      restore();
+    }
+  });
+
+  it("verifies the callback HMAC but keeps financial processing disabled in Phase 1", async () => {
+    enable();
+    try {
+      const res = await GET(get(signedLive()));
+      expect(res.status).toBe(403);
+      expect(await res.text()).toBe("0");
+    } finally {
+      restore();
+    }
+  });
+
+  it("rejects a modified signed amount and duplicate query parameters", async () => {
+    enable();
+    try {
+      const signed = signedLive();
+      expect((await GET(get(signed.replace("reward=70", "reward=71")))).status).toBe(403);
+
+      const duplicate = `${theoremreachCallbackEndpoint()}?reward=70&%72eward=71&currency=1.00&user_id=${UID}&tx_id=reward-2&hash=invalid`;
+      expect((await GET(get(duplicate))).status).toBe(400);
     } finally {
       restore();
     }
@@ -113,6 +151,7 @@ describe("GET /api/providers/theoremreach/postback — Phase 1 (no money moves)"
         { reward: "70", currency: "1.00", tx_id: "t", hash: "h" }, // no user
         { reward: "70", currency: "1.00", user_id: "not-a-uuid", tx_id: "t", hash: "h" },
         { reward: "70", currency: "1.00", user_id: UID, hash: "h" }, // no tx identity
+        { reward: "70", currency: "1.00", user_id: UID, transaction_id: "entry-only", hash: "h" }, // entry ID is not reward ID
         { reward: "70", currency: "1.00", user_id: UID, tx_id: "t" }, // no hash
       ];
       for (const params of cases) {

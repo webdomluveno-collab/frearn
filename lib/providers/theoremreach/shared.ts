@@ -1,15 +1,15 @@
 /**
  * TheoremReach — shared, CLIENT-SAFE parsing and validation.
- * No secrets here. There is deliberately NO callback signature verifier:
- * the exact callback signed payload is unproven, so Phase 1 fails closed
- * (see app/api/providers/theoremreach/postback/route.ts). Entry-link
- * signing lives in ./server.ts (proven formula, server-only).
+ * No secrets here. Callback URL signature verification lives in ./server.ts
+ * (server-only); this module only validates its fields. Phase 1 still fails
+ * closed after a valid signature (see the postback route).
  *
  * Supplied dashboard contract (authoritative for field names):
  * - reward:   reward amount in app currency (user's share)
  * - currency: USD amount paid for the transaction (publisher revenue)
  * - user_id:  external Freearn user ID supplied on entry
- * - tx_id:    unique TheoremReach callback transaction ID
+ * - tx_id:    unique TheoremReach reward transaction ID
+ * - transaction_id: optional entry/session ID; never a reward deduplication key
  * - hash:     callback signature (payload formula UNPROVEN — never trusted)
  * - reversal: optional "true" for a reversal / negative transaction
  * - debug:    optional; debug=true MUST be completely ignored
@@ -72,14 +72,11 @@ export function readCallbackFields(get: (name: string) => string | null): Theore
 }
 
 /**
- * Transaction identity. The dashboard contract names `tx_id` as the unique
- * callback ID while other documentation uses `transaction_id`. Do NOT assume
- * they are identical — capture both, prefer `tx_id`, and treat the mapping
- * as UNRESOLVED until a real dashboard callback is observed.
+ * Reward identity is exclusively `tx_id`. `transaction_id` identifies the
+ * entry/session and must never be used to deduplicate reward callbacks.
  */
 export function callbackTxId(f: Pick<TheoremreachCallbackFields, "txId" | "transactionId">): string | null {
   if (isReasonableId(f.txId)) return f.txId;
-  if (isReasonableId(f.transactionId)) return f.transactionId;
   return null;
 }
 
