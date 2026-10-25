@@ -44,6 +44,7 @@ export default async function AdminPage() {
     <div className="container space-y-6 py-10">
       <h1 className="text-2xl font-bold tracking-tight">Admin</h1>
       <Link href="/admin/control-center" className="inline-flex min-h-[44px] items-center rounded-full bg-[#d9f1e9] px-6 py-3 font-semibold text-[#08675f]">Open Control Center →</Link>
+      <Link href="/admin/users-and-earnings" className="inline-flex min-h-[44px] items-center rounded-full border px-6 py-3 font-semibold">Users &amp; earnings →</Link>
       <p className="text-sm text-muted-foreground">
         {stats ? "Latest 500 CPX audit events, not lifetime financial totals. Use Control Center for credit-backed financial reporting." : "Database is not configured — showing placeholders, not metrics."}
       </p>

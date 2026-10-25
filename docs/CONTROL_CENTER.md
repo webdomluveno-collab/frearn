@@ -22,6 +22,15 @@ The new branch includes only the production baseline and Control Center work. No
 
 All monetary fields are integer USD cents, validated as safe integers; unsafe sums fail closed. Code: `lib/admin/control-center.ts`, presentation: `components/admin/control-center-view.tsx`.
 
+### Users & earnings directory
+
+`/admin/users-and-earnings` reads only profile IDs and creation timestamps (no email), ledger rows, and minimal withdrawal request fields (no destinations/reviewer data). It pages each source in exact-count 500-row ranges with a 50,000-row cap, aggregates the complete bounded result server-side, and only then filters by user-ID substring, globally sorts by confirmed earnings, and returns one 50-user page. Any incomplete source read yields `Not available`, never a partial user list.
+
+- Confirmed earnings are gross positive `survey_reward`, `offer_reward`, and `referral_reward` credits. Referral rewards appear in their total but remain platform-funded and are not attributed to providers or survey/offer activity.
+- Confirmed negative `reversal` entries are shown separately, consistent with the existing Control Center gross-credit and reversal accounting.
+- Paid withdrawals use `withdrawal_requests.status = 'paid'` and show both gross requested amount and paid-request count; all request count is separate. This remains an operator-recorded status, not proof of bank/chain settlement.
+- Available, reserved, and unconfirmed balances are calculated per user by the existing `summarizeLedger`; pending holds are not deducted twice, and reversed rows remain excluded.
+
 | Metric | Source and definition | Limits |
 | --- | --- | --- |
 | Reported publisher revenue by provider | Sum `ledger_transactions.publisher_revenue_cents` on positive **confirmed** `survey_reward` / `offer_reward` rows, selected by ledger `created_at`. | Revenue at durable credit time, as reported by the provider. Not actual provider cash received or a full invoice statement. Only current proven CPX, AdGem and TimeWall ledger mappings with a nonempty provider transaction ID and nonnegative revenue are covered. Unknown/unattributed mappings cause revenue/spread to be unavailable, not guessed. |
