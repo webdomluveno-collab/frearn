@@ -14,7 +14,7 @@ describe("credit-backed financial definitions", () => {
     it("separates reported revenue, rewards, spread and paid withdrawals", () => {
         const r = calc([row()], [wd({ status: "paid", amount_cents: 10 })]);
         expect(r.reportedRevenueCents).toBe(100);
-        expect(r.rewardsCents).toBe(70);
+        expect(r.surveyOfferRewardsCents).toBe(70);
         expect(r.creditSpreadCents).toBe(30);
         expect(r.paid).toEqual({ count: 1, cents: 10 });
         expect(r).not.toHaveProperty("netProfit");
@@ -22,7 +22,7 @@ describe("credit-backed financial definitions", () => {
     });
     it("counts confirmed positive rewards and distinct rewarded users, never survey opens", () => {
         const r = calculateFinance([row(), row({ id: "r2", provider_transaction_id: "tx2" }), row({ id: "r3", user_id: "u2", status: "pending" }), row({ id: "r4", user_id: "u3", status: "reversed" }), row({ id: "r5", type: "adjustment", user_id: "u4" })], [], [{ id: "e", provider: "timewall", processing_status: "held", received_at: NOW }], "all", AS_OF);
-        expect(r.rewardsCents).toBe(140);
+        expect(r.surveyOfferRewardsCents).toBe(140);
         expect(r.activeUsers).toBe(1);
         expect(r.reportedRevenueCents).toBe(200);
         expect(r.events.held).toBe(1);
@@ -36,11 +36,11 @@ describe("credit-backed financial definitions", () => {
         const r = calc([row(bad)]);
         expect(r.reportedRevenueCents).toBeNull();
         expect(r.creditSpreadCents).toBeNull();
-        expect(r.rewardsCents).toBe(70);
+        expect(r.surveyOfferRewardsCents).toBe(70);
     });
     it("does not subtract later reversal amounts twice from gross credited rewards", () => {
         const r = calc([row(), row({ id: "rev", type: "reversal", amount_cents: -70, publisher_revenue_cents: 0 }), row({ id: "void", provider: "manual", type: "reversal", amount_cents: 0 })]);
-        expect(r.rewardsCents).toBe(70);
+        expect(r.surveyOfferRewardsCents).toBe(70);
         expect(r.reportedRevenueCents).toBe(100);
         expect(r.reversals).toEqual({ count: 1, cents: 70, releasedHolds: 1 });
         expect(r.liabilities.totalCents).toBe(0);
@@ -65,14 +65,34 @@ describe("credit-backed financial definitions", () => {
     });
     it("uses rolling inclusive UTC boundaries; balances are not period-filtered", () => {
         const r = calc([row({ created_at: "2026-10-18T12:00:00.000Z" }), row({ id: "excluded", created_at: "2026-10-18T11:59:59.999Z" }), row({ id: "future", created_at: "2026-10-26T00:00:00.000Z" })], [], "7");
-        expect(r.rewardsCents).toBe(70); // Future rows are excluded from reporting and balances.
+        expect(r.surveyOfferRewardsCents).toBe(70); // Future rows are excluded from reporting and balances.
         expect(r.liabilities.totalCents).toBe(140);
         const old = calc([row({ created_at: OLD })], [], "7");
-        expect(old.rewardsCents).toBe(0);
+        expect(old.surveyOfferRewardsCents).toBe(0);
         expect(old.liabilities.totalCents).toBe(70);
-        expect(calc([row({ created_at: "2026-10-01T00:00:00.000Z" })], [], "30").rewardsCents).toBe(70);
+        expect(calc([row({ created_at: "2026-10-01T00:00:00.000Z" })], [], "30").surveyOfferRewardsCents).toBe(70);
     });
-    it("represents a complete empty database with real zeros", () => { const r = calc(); expect(Object.is(r.reversals.cents, -0)).toBe(false); expect(r.activeUsers).toBe(0); expect(r.rewardsCents).toBe(0); expect(r.liabilities.totalCents).toBe(0); });
+    it("accepts referral ledger rows as platform rewards, not provider income or survey activity", () => {
+        const referral = row({ id: "referral", user_id: "u2", type: "referral_reward", amount_cents: 25, publisher_revenue_cents: 0, provider: null, provider_transaction_id: null });
+        expect(financeLedgerSchema.safeParse(referral).success).toBe(true);
+        const r = calc([row(), referral]);
+        expect(r.reportedRevenueCents).toBe(100);
+        expect(r.surveyOfferRewardsCents).toBe(70);
+        expect(r.referralRewardsCents).toBe(25);
+        expect(r.totalRewardCostsCents).toBe(95);
+        expect(r.creditSpreadCents).toBe(5);
+        expect(r.activeUsers).toBe(1);
+        expect(r.providers.reduce((n, p) => n + p.credits, 0)).toBe(1);
+        expect(r.providers.map(p => p.provider)).not.toContain("unattributed");
+        expect(r.liabilities).toMatchObject({ availableCents: 95, totalCents: 95 });
+    });
+    it("accepts referral_reward rows from the paginated ledger read", async () => {
+        const referral = row({ type: "referral_reward", amount_cents: 25, publisher_revenue_cents: 0, provider: null, provider_transaction_id: null });
+        const { db } = database([{ data: [referral], count: 1, error: null }]);
+        const read = await readFinanceRows(db, "ledger_transactions", "id,type", "created_at", AS_OF, financeLedgerSchema);
+        expect(read[0].type).toBe("referral_reward");
+    });
+    it("represents a complete empty database with real zeros", () => { const r = calc(); expect(Object.is(r.reversals.cents, -0)).toBe(false); expect(r.activeUsers).toBe(0); expect(r.surveyOfferRewardsCents).toBe(0); expect(r.referralRewardsCents).toBe(0); expect(r.totalRewardCostsCents).toBe(0); expect(r.liabilities.totalCents).toBe(0); });
     it("fails instead of rounding an unsafe total", () => { expect(() => calc([row({ amount_cents: Number.MAX_SAFE_INTEGER }), row({ id: "two", amount_cents: 1 })])).toThrow(); });
     it.each([undefined, "bad", ["7"], "0"])("normalizes invalid filter %j", value => expect(financePeriod(value)).toBe("all"));
     it("supports only the specified reporting periods", () => { expect(financePeriod("7")).toBe("7"); expect(financePeriod("30")).toBe("30"); });

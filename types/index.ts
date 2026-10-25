@@ -39,7 +39,8 @@ export type LedgerType =
   | "offer_reward"
   | "adjustment"
   | "withdrawal"
-  | "reversal";
+  | "reversal"
+  | "referral_reward";
 
 export type LedgerStatus = "pending" | "confirmed" | "reversed";
 

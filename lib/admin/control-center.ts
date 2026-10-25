@@ -11,7 +11,7 @@ export function financePeriod(value: unknown): FinancePeriod {
 const cents = z.number().int().safe();
 const timestamp = z.string().datetime({ offset: true });
 export const financeLedgerSchema = z.object({
-    id: z.string(), user_id: z.string(), type: z.enum(["survey_reward", "offer_reward", "adjustment", "withdrawal", "reversal"]),
+    id: z.string(), user_id: z.string(), type: z.enum(["survey_reward", "offer_reward", "adjustment", "withdrawal", "reversal", "referral_reward"]),
     status: z.enum(["confirmed", "pending", "reversed"]), amount_cents: cents,
     publisher_revenue_cents: cents, provider: z.string().nullable(), provider_transaction_id: z.string().nullable(), created_at: timestamp,
 });
@@ -39,17 +39,20 @@ export function calculateFinance(ledger: FinanceLedger[], withdrawals: FinanceWi
     withdrawals = withdrawals.filter(r => Date.parse(r.created_at) <= end);
     const start = period === "all" ? -Infinity : end - Number(period) * 86400000;
     const inPeriod = (value: string) => Date.parse(value) >= start && Date.parse(value) <= end;
-    const rewards = ledger.filter(r => r.status === "confirmed" && r.amount_cents > 0 && (r.type === "survey_reward" || r.type === "offer_reward") && inPeriod(r.created_at));
+    const surveyOfferRewards = ledger.filter(r => r.status === "confirmed" && r.amount_cents > 0 && (r.type === "survey_reward" || r.type === "offer_reward") && inPeriod(r.created_at));
+    const referralRewards = ledger.filter(r => r.status === "confirmed" && r.type === "referral_reward" && r.amount_cents > 0 && inPeriod(r.created_at));
     // Only known mappings whose callback code persists publisher cents on the unique credit.
     const knownProviders = ["cpx", "adgem", "timewall"];
-    const providers = [...new Set([...knownProviders, ...rewards.map(r => r.provider ?? "unattributed")])].sort().map(provider => {
-        const rows = rewards.filter(r => (r.provider ?? "unattributed") === provider);
+    const providers = [...new Set([...knownProviders, ...surveyOfferRewards.map(r => r.provider ?? "unattributed")])].sort().map(provider => {
+        const rows = surveyOfferRewards.filter(r => (r.provider ?? "unattributed") === provider);
         const covered = knownProviders.includes(provider) && rows.every(r => r.provider_transaction_id && r.publisher_revenue_cents >= 0);
         return { provider, credits: rows.length, rewardsCents: sum(rows, "amount_cents"), revenueCents: covered ? sum(rows, "publisher_revenue_cents") : null };
     });
     const revenueCovered = providers.every(p => p.revenueCents !== null);
     const reportedRevenueCents = revenueCovered ? providers.reduce((n, p) => add(n, p.revenueCents!), 0) : null;
-    const rewardsCents = sum(rewards, "amount_cents");
+    const surveyOfferRewardsCents = sum(surveyOfferRewards, "amount_cents");
+    const referralRewardsCents = sum(referralRewards, "amount_cents");
+    const totalRewardCostsCents = add(surveyOfferRewardsCents, referralRewardsCents);
     const paid = withdrawals.filter(r => r.status === "paid" && inPeriod(r.updated_at));
     const pending = withdrawals.filter(r => ACTIVE.has(r.status));
     const reversals = ledger.filter(r => r.type === "reversal" && r.status === "confirmed" && r.amount_cents < 0 && inPeriod(r.created_at));
@@ -72,13 +75,13 @@ export function calculateFinance(ledger: FinanceLedger[], withdrawals: FinanceWi
         deficitCents = add(deficitCents, Math.max(0, -raw));
     }
     return {
-        asOf, period, providers, rewardsCents, reportedRevenueCents,
-        creditSpreadCents: reportedRevenueCents === null ? null : add(reportedRevenueCents, -rewardsCents),
+        asOf, period, providers, surveyOfferRewardsCents, referralRewardsCents, totalRewardCostsCents, reportedRevenueCents,
+        creditSpreadCents: reportedRevenueCents === null ? null : add(reportedRevenueCents, -totalRewardCostsCents),
         paid: { count: paid.length, cents: paid.reduce((n, r) => add(n, r.amount_cents), 0) },
         pending: { count: pending.length, cents: pending.reduce((n, r) => add(n, r.amount_cents), 0) },
         liabilities: { availableCents, reservedCents, totalCents: add(availableCents, reservedCents), unconfirmedCents, deficitCents },
         reversals: { count: reversals.length, cents: Math.abs(sum(reversals, "amount_cents")), releasedHolds: released.length },
-        activeUsers: new Set(rewards.map(r => r.user_id)).size,
+        activeUsers: new Set(surveyOfferRewards.map(r => r.user_id)).size,
         events: { count: events.filter(r => inPeriod(r.received_at)).length,
             held: events.filter(r => inPeriod(r.received_at) && r.processing_status === "held").length,
             rejected: events.filter(r => inPeriod(r.received_at) && ["rejected", "orphan_reversal"].includes(r.processing_status)).length },
