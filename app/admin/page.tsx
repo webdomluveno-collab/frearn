@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { centsToUsd } from "@/lib/money";
@@ -33,21 +34,18 @@ export default async function AdminPage() {
         ["Duplicates ignored", String(stats.duplicates)],
         ["Rejected / invalid", String(stats.rejected)],
         ["Orphan reversals", String(stats.orphans)],
-        ["Publisher revenue", centsToUsd(stats.revenueCents)],
-        ["User rewards", centsToUsd(stats.rewardsCents)],
-        ["Gross margin", centsToUsd(stats.marginCents)],
       ]
     : [
         ["CPX events received", "—"], ["Processed", "—"], ["Duplicates ignored", "—"],
-        ["Rejected / invalid", "—"], ["Orphan reversals", "—"], ["Publisher revenue", "—"],
-        ["User rewards", "—"], ["Gross margin", "—"],
+        ["Rejected / invalid", "—"], ["Orphan reversals", "—"],
       ];
 
   return (
     <div className="container space-y-6 py-10">
       <h1 className="text-2xl font-bold tracking-tight">Admin</h1>
+      <Link href="/admin/control-center" className="inline-flex min-h-[44px] items-center rounded-full bg-[#d9f1e9] px-6 py-3 font-semibold text-[#08675f]">Open Control Center →</Link>
       <p className="text-sm text-muted-foreground">
-        {stats ? "Live CPX provider data. Figures derive from stored provider events — no fake metrics." : "Database is not configured — showing placeholders, not metrics."}
+        {stats ? "Latest 500 CPX audit events, not lifetime financial totals. Use Control Center for credit-backed financial reporting." : "Database is not configured — showing placeholders, not metrics."}
       </p>
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {cards.map(([k, v]) => (
