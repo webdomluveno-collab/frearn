@@ -565,6 +565,19 @@ Callback. The Event Webhook is not implemented here. Until TheoremReach confirms
 the dashboard callback behavior and its test payload, leave the processing
 gate off; orphan reversals are acknowledged as retryable and never debit.
 
+### 11b.5a Phase 3 atomic database path — prepared locally, not applied
+
+`database/migrations/014_theoremreach_atomic_reward.sql` defines the
+service-role-only `process_theoremreach_reward(...)` RPC. It inserts the
+`provider_events` row, ledger reward and final event status inside one
+PostgreSQL function invocation/transaction. The application now calls this
+single RPC instead of separate event/ledger writes. The migration is local
+preparation only and has not been applied to Supabase.
+
+The RPC accepts rewards only; reversal processing remains disabled in the
+application until TheoremReach confirms the Reward Callback versus Event
+Webhook contract. No automatic reversal SQL path is included.
+
 ### 11b.6 Exact next step (Phase 2)
 
 The dashboard currently reports Live and does not allow Test Server Callback.

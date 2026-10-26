@@ -4,7 +4,6 @@ import {
   isTheoremreachPostbackEnabled,
   isTheoremreachRewardProcessingEnabled,
   theoremreachCallbackUrlWithoutHash,
-  theoremreachCallbackHash,
   verifyTheoremreachCallbackHash,
 } from "@/lib/providers/theoremreach/server";
 import { processTheoremreachCallback } from "@/lib/providers/theoremreach/process";
@@ -84,12 +83,10 @@ export async function GET(req: Request) {
     });
     switch (outcome.outcome) {
       case "rewarded":
-      case "reversed":
       case "duplicate":
         return ok();
-      case "orphan_reversal":
-        // Retryable: a valid original transaction may still arrive first.
-        return fail(409);
+      case "reversal_disabled":
+        return fail(422);
       case "rejected":
         return fail(422);
     }
