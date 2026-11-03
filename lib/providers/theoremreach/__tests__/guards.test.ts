@@ -19,6 +19,7 @@ const OWN = [
   "lib/providers/theoremreach/server.ts",
   "app/api/providers/theoremreach/wall/route.ts",
   "app/api/providers/theoremreach/postback/route.ts",
+  "app/api/providers/theoremreach/event-webhook/route.ts",
 ];
 
 describe("TheoremReach Phase 1 secret containment", () => {
@@ -39,10 +40,13 @@ describe("TheoremReach Phase 1 secret containment", () => {
     }
   });
 
-  it("postback route never logs callback contents", () => {
-    expect(codeWithoutComments("app/api/providers/theoremreach/postback/route.ts")).not.toMatch(
-      /console\.(log|warn|error|info|debug)/
-    );
+  it("callback and Event Webhook routes never log payload contents", () => {
+    for (const file of [
+      "app/api/providers/theoremreach/postback/route.ts",
+      "app/api/providers/theoremreach/event-webhook/route.ts",
+    ]) {
+      expect(codeWithoutComments(file)).not.toMatch(/console\.(log|warn|error|info|debug)/);
+    }
   });
 
   it("server-only module is isolated from client bundles", () => {
@@ -62,8 +66,9 @@ describe("TheoremReach Phase 1 writes no money", () => {
     }
   });
 
-  it("no credit/debit outcome vocabulary in TheoremReach runtime files", () => {
-    for (const f of OWN) {
+  it("no credit/debit outcome vocabulary in non-route TheoremReach files", () => {
+    const nonRoute = OWN.filter(f => !f.endsWith("/route.ts"));
+    for (const f of nonRoute) {
       const code = `${f}: ${codeWithoutComments(f)}`;
       expect(code).not.toMatch(/"credited"|"reversed"|:reward|:reversal/);
     }

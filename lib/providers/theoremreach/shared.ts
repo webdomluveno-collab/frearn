@@ -1,23 +1,22 @@
 /**
  * TheoremReach — shared, CLIENT-SAFE parsing and validation.
- * No secrets here. There is deliberately NO callback signature verifier:
- * the exact callback signed payload is unproven, so Phase 1 fails closed
- * (see app/api/providers/theoremreach/postback/route.ts). Entry-link
- * signing lives in ./server.ts (proven formula, server-only).
+ * No secrets here. Callback URL signature verification lives in ./server.ts
+ * (server-only); this module only validates its fields. Money writes remain
+ * behind separate default-off server gates in the callback routes.
  *
- * Supplied dashboard contract (authoritative for field names):
+ * Official field contract:
  * - reward:   reward amount in app currency (user's share)
  * - currency: USD amount paid for the transaction (publisher revenue)
  * - user_id:  external Freearn user ID supplied on entry
- * - tx_id:    unique TheoremReach callback transaction ID
+ * - tx_id:    provider's unique reward transaction ID (reward idempotency key)
+ * - transaction_id: optional publisher entry-session ID; never a reward key
  * - hash:     callback signature (payload formula UNPROVEN — never trusted)
  * - reversal: optional "true" for a reversal / negative transaction
  * - debug:    optional; debug=true MUST be completely ignored
  * - status:   DEPRECATED — must never drive reward decisions
  *
- * Phase 1 rule: nothing in this file can write money. The pure mapping
- * helpers below document the INTENDED Phase 2 money model only; no runtime
- * processing path may call them to credit or debit.
+ * Nothing in this file can write money. The pure mapping helpers below are
+ * used only by the gated reward path.
  */
 
 export function isUuid(value: unknown): value is string {
@@ -34,6 +33,16 @@ export function isReasonableId(value: unknown): value is string {
     value.length >= 1 &&
     value.length <= 128 &&
     /^[A-Za-z0-9_:.-]+$/.test(value)
+  );
+}
+
+/** Provider-generated Event Webhook id: opaque, bounded, no whitespace/control. */
+export function isEventId(value: unknown): value is string {
+  return (
+    typeof value === "string" &&
+    value.length >= 1 &&
+    value.length <= 128 &&
+    !/[\s\u0000-\u001f\u007f]/.test(value)
   );
 }
 
@@ -72,39 +81,60 @@ export function readCallbackFields(get: (name: string) => string | null): Theore
 }
 
 /**
- * Transaction identity. The dashboard contract names `tx_id` as the unique
- * callback ID while other documentation uses `transaction_id`. Do NOT assume
- * they are identical — capture both, prefer `tx_id`, and treat the mapping
- * as UNRESOLVED until a real dashboard callback is observed.
+ * Provider reward identity. TheoremReach's dashboard confirms `tx_id` is the
+ * unique reward transaction ID; it is the only key used for reward
+ * idempotency. `transaction_id` is an optional entry-session ID and may have a
+ * different value, so it must never be used as a fallback reward key.
  */
-export function callbackTxId(f: Pick<TheoremreachCallbackFields, "txId" | "transactionId">): string | null {
-  if (isReasonableId(f.txId)) return f.txId;
-  if (isReasonableId(f.transactionId)) return f.transactionId;
-  return null;
+export function callbackRewardTxId(f: Pick<TheoremreachCallbackFields, "txId">): string | null {
+  return isReasonableId(f.txId) ? f.txId : null;
 }
 
 /**
- * INTENDED Phase 2 mapping (DOCUMENT ONLY — no active credit path may use
- * these to write money in Phase 1):
+ * Optional publisher entry-session ID. Returns null when absent or malformed;
+ * callers that need to distinguish "absent" from "invalid" must validate the
+ * raw field separately. This value is for audit/session correlation only and
+ * never participates in reward idempotency.
+ */
+export function callbackEntryTransactionId(
+  f: Pick<TheoremreachCallbackFields, "transactionId">
+): string | null {
+  return isReasonableId(f.transactionId) ? f.transactionId : null;
+}
+
+/**
+ * Reward mapping used only after the route's default-off processing gate:
  * Exchange Rate 70 + cent/cents property ⇒ `reward` already IS user cents.
  * reward=70 → 70¢. NEVER apply another 70% multiplier (that would credit
  * 49¢). Only positive integers within cap are creditable.
  */
 export const THEOREMREACH_MAX_REWARD_CENTS = 1_000_000;
+/** publisher_revenue_cents is a PostgreSQL int in the existing ledger schema. */
+export const THEOREMREACH_MAX_PUBLISHER_CENTS = 2_147_483_647;
 
 export function intendedUserCents(reward: unknown): number | null {
-  if (typeof reward !== "number" || !Number.isFinite(reward)) return null;
-  if (!Number.isInteger(reward) || reward <= 0 || reward > THEOREMREACH_MAX_REWARD_CENTS) return null;
-  return reward;
+  const value = typeof reward === "string" && /^\d+$/.test(reward) ? Number(reward) : reward;
+  if (typeof value !== "number" || !Number.isSafeInteger(value)) return null;
+  if (value <= 0 || value > THEOREMREACH_MAX_REWARD_CENTS) return null;
+  return value;
+}
+
+export function intendedRewardCents(reward: unknown): number | null {
+  return intendedUserCents(reward);
 }
 
 /**
- * INTENDED Phase 2 mapping (DOCUMENT ONLY): `currency` is publisher USD
- * revenue as a float; stored as integer cents for audit. currency=1.00 → 100.
+ * Parse `currency` publisher USD into PostgreSQL integer cents using exact
+ * decimal string arithmetic and half-up cent rounding. No binary float math.
  */
 export function intendedPublisherCents(currency: unknown): number | null {
-  if (typeof currency !== "number" || !Number.isFinite(currency) || currency < 0) return null;
-  const cents = Math.round(currency * 100);
-  if (!Number.isSafeInteger(cents)) return null;
+  const raw = typeof currency === "string" ? currency : typeof currency === "number" && Number.isFinite(currency) ? String(currency) : null;
+  if (raw === null || !/^\d+(?:\.\d{1,6})?$/.test(raw)) return null;
+  const [whole, fraction = ""] = raw.split(".");
+  if (whole.length > 10) return null;
+  const thousandths = Number(whole) * 1000 + Number((fraction + "000").slice(0, 3));
+  if (!Number.isSafeInteger(thousandths)) return null;
+  const cents = Math.floor((thousandths + 5) / 10);
+  if (!Number.isSafeInteger(cents) || cents > THEOREMREACH_MAX_PUBLISHER_CENTS) return null;
   return cents;
 }
