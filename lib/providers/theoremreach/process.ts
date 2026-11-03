@@ -1,7 +1,10 @@
 export const THEOREMREACH_PROVIDER_KEY = "theoremreach";
 
 export interface NormalizedTheoremreachCallback {
+  /** Provider `tx_id`: the unique reward transaction ID and idempotency key. */
   txId: string;
+  /** Optional publisher `transaction_id` entry-session ID; never a reward key. */
+  entryTransactionId: string | null;
   userId: string;
   reversal: boolean;
   userRewardCents: number;

@@ -7,17 +7,30 @@ const db = new PGlite();
 const read = (file: string) => readFileSync(resolve(__dirname, file), "utf8");
 const UID = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee";
 
-async function callReward(txId = "tr-1") {
+async function callReward(txId = "tr-1", entryTransactionId: string | null = "entry-1") {
   return (await db.query<{ outcome: string; ledger_id: string | null }>(
     "select * from process_theoremreach_reward($1::uuid,$2::text,$3::int,$4::int,$5::jsonb)",
-    [UID, txId, 70, 100, JSON.stringify({ tx_id: txId, reward: "70", currency: "1.00" })]
+    [
+      UID,
+      txId,
+      70,
+      100,
+      JSON.stringify({ tx_id: txId, transaction_id: entryTransactionId, reward: "70", currency: "1.00" }),
+    ]
   )).rows[0];
 }
 
 async function callReversal(eventId: string, txId: string) {
   return (await db.query<{ outcome: string; ledger_id: string | null }>(
     "select * from process_theoremreach_reversal($1::text,$2::uuid,$3::text,$4::jsonb)",
-    [eventId, UID, txId, JSON.stringify({ tx_id: txId, event_type: "reversal" })]
+    [
+      eventId,
+      UID,
+      txId,
+      // amount_in_currency is deliberately misleading: the RPC must use the
+      // original ledger amount, not the webhook amount.
+      JSON.stringify({ tx_id: txId, amount_in_currency: "999.99", event_type: "reversal" }),
+    ]
   )).rows[0];
 }
 
@@ -67,6 +80,19 @@ describe("TheoremReach atomic RPC — real PostgreSQL-compatible PGlite", () => 
     expect(await callReward()).toMatchObject({ outcome: "duplicate" });
     expect((await db.query<{n: number}>("select count(*)::int as n from provider_events")).rows[0].n).toBe(1);
     expect((await db.query<{n: number}>("select count(*)::int as n from ledger_transactions")).rows[0].n).toBe(1);
+  });
+
+  it("deduplicates by provider tx_id, never by the optional entry transaction_id", async () => {
+    expect(await callReward("tr-provider-1", "entry-1")).toMatchObject({ outcome: "rewarded" });
+    expect(await callReward("tr-provider-1", "entry-2")).toMatchObject({ outcome: "duplicate" });
+    expect(await callReward("tr-provider-2", "entry-1")).toMatchObject({ outcome: "rewarded" });
+
+    expect((await db.query<{n: number}>("select count(*)::int as n from ledger_transactions")).rows[0].n).toBe(2);
+    expect(await balanceCents()).toBe(140);
+    const storedEntry = (await db.query<{ entry: string }>(
+      "select raw_payload->>'transaction_id' as entry from provider_events where external_event_id = 'tr-provider-1'"
+    )).rows[0];
+    expect(storedEntry.entry).toBe("entry-1");
   });
 
   it("serializes Promise.all retries in the single PGlite engine without duplicates", async () => {

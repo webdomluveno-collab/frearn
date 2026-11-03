@@ -151,6 +151,36 @@ describe("POST /api/providers/theoremreach/event-webhook", () => {
     }
   });
 
+  it("maps reversed_transactions[].transaction_id to the reward tx_id, not the entry session", async () => {
+    const prev = saveEnv();
+    enable();
+    mocks.processReversalAtomically.mockResolvedValue({ outcome: "reversed", ledgerId: "ledger-1" });
+    try {
+      const body = JSON.stringify({
+        data: {
+          event_type: "reversal",
+          user_id: UID,
+          transaction_id: "entry-session-1",
+          external_transaction_id: "entry-session-2",
+          reversed_transactions: [{ transaction_id: "provider-reward-1", amount_in_currency: "1.0" }],
+        },
+      });
+      expect((await POST(request(signedUrl(body), body))).status).toBe(200);
+      expect(mocks.processReversalAtomically).toHaveBeenCalledWith({
+        eventId: EVENT_ID,
+        userId: UID,
+        txId: "provider-reward-1",
+        rawPayload: expect.objectContaining({
+          tx_id: "provider-reward-1",
+          transaction_id: "entry-session-1",
+          external_transaction_id: "entry-session-2",
+        }),
+      });
+    } finally {
+      restoreEnv(prev);
+    }
+  });
+
   it("acknowledges duplicate and orphan reversals as durable no-ops", async () => {
     const prev = saveEnv();
     enable();

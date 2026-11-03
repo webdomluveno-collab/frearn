@@ -491,7 +491,8 @@ End-to-end (needs Supabase keys + `TIMEWALL_POSTBACK_SECRET` in `.env.local`):
 
 - Server-only signed direct-entry URL builder (`lib/providers/theoremreach/server.ts`):
   `https://theoremreach.com/respondent_entry/direct` + `api_key`, `user_id`
-  (session UUID), fresh `transaction_id` per mint, `currency_name_plural=cents`,
+  (session UUID), fresh `transaction_id` per mint (entry-session ID, not the
+  reward identity), `currency_name_plural=cents`,
   `currency_name_singular=cent`, `exchange_rate=70`, `external_id` (user UUID),
   `partner_id` (placement), `hash` = base64url HMAC-SHA1 over the pre-hash URL.
 - Authenticated wall route `GET /api/providers/theoremreach/wall`
@@ -530,6 +531,8 @@ End-to-end (needs Supabase keys + `TIMEWALL_POSTBACK_SECRET` in `.env.local`):
 - `reward` = future user cents, verbatim: `reward=70` → 70¢.
   NEVER apply another 70% multiplier (that would credit 49¢).
 - `currency` = publisher USD revenue: `currency=1.00` → `publisherRevenueCents=100`.
+  Publisher USD is converted to integer cents with the existing half-up rule
+  (e.g. `0.005` → 1¢, `0.015` → 2¢); this financial rule is unchanged.
 - Pure mapping helpers + unit tests exist in `shared.ts`. Runtime use is
   gated by the default-off reward flag; while the gate is off the postback
   route writes nothing at all.
@@ -542,10 +545,11 @@ End-to-end (needs Supabase keys + `TIMEWALL_POSTBACK_SECRET` in `.env.local`):
 - The signed origin is taken from trusted `siteConfig.url`, never the incoming
   `Host`/`X-Forwarded-Host`; the original raw query order and encoding are kept
   while removing only the single `hash` pair. Duplicate parameters fail closed.
-- `transaction_id` is the official Reward Callback transaction identity and the
-  reward deduplication key. `tx_id` is accepted only as a legacy alias when
-  `transaction_id` is absent; if both are present and differ, the callback is
-  rejected as ambiguous.
+- `tx_id` is the provider's unique reward transaction ID and the reward
+  deduplication key. `transaction_id` is the optional publisher entry-session
+  ID; both may be present and may differ. The entry-session ID is validated
+  separately and stored for audit, but it never participates in reward
+  idempotency.
 - `status` is deprecated and never consulted. Hash verification does not
   enable ledger writes: valid non-debug callbacks still return `403` while the
   reward gate is off.
@@ -557,15 +561,17 @@ which is off unless explicitly set to the exact string `true`. This is separate
 from `THEOREMREACH_POSTBACK_ENABLED`: enabling callback verification alone
 cannot construct the Supabase store or write ledger/provider-event rows.
 
-Reward credits are deduplicated by `transaction_id` with existing
+Reward credits are deduplicated by provider `tx_id` with existing
 provider-event, ledger idempotency and the unique
 `(provider, provider_transaction_id, type)` constraint. The Event Webhook has
 its own `THEOREMREACH_EVENT_WEBHOOK_ENABLED` master switch and
 `THEOREMREACH_EVENT_PROCESSING_ENABLED` write gate; both default OFF.
+`reversed_transactions[].transaction_id` in the Event Webhook is the provider
+reward ID (the Reward Callback's `tx_id`), not the entry-session ID.
 
 A reversal debits only the confirmed original `survey_reward` with the same
-provider transaction and `user_id`, using the stored original amount rather
-than the webhook amount. Missing originals, user mismatch, amount mismatch and
+provider `tx_id` and `user_id`, using the stored original amount rather than
+the webhook amount. Missing originals, user mismatch, amount mismatch and
 repeated reversals do not create another debit. A reversal that arrives before
 its reward is recorded as `orphan_reversal`; the later reward returns
 `reversal_pending` and writes no credit. Reward and reversal share a
@@ -590,10 +596,11 @@ are local preparation only and have not been applied to Supabase.
 
 Obtain a provider-approved Reward Callback, reversal and ban sample (or a
 staging placement), verify them against the pinned HMAC vector, and confirm the
-documented `transaction_id` / `enc_salt` fields in real traffic. Then apply
-migrations 014 and 018 in an approved environment, run the synthetic
-concurrency suite, and enable the gates one at a time. Keep all gates OFF until
-that approval; the Earn tab/card/iframe remains absent.
+real `tx_id` (reward identity), optional `transaction_id` (entry session) and
+`enc_salt` fields in real traffic. Then apply migrations 014 and 018 in an
+approved environment, run the synthetic concurrency suite, and enable the
+gates one at a time. Keep all gates OFF until that approval; the Earn
+tab/card/iframe remains absent.
 
 ## 12. Security considerations before production
 

@@ -20,6 +20,8 @@ import { isEventId, isReasonableId, isUuid } from "@/lib/providers/theoremreach/
  * - Every request is HMAC-verified before the database store is constructed.
  * - Reversal amounts are taken from the original reward ledger, never from the
  *   webhook body.
+ * - `reversed_transactions[].transaction_id` is the provider reward ID (the
+ *   Reward Callback's `tx_id`), not the entry-session ID.
  * - Nothing is logged: payloads contain identity and financial data.
  */
 
@@ -99,13 +101,16 @@ export async function POST(req: Request) {
     const reversed = data.reversed_transactions;
     if (!Array.isArray(reversed) || reversed.length === 0 || reversed.length > 100) return fail(400);
 
-    const transactions: string[] = [];
+    // The webhook field is named `transaction_id`, but it identifies the
+    // provider reward transaction (`tx_id` in the Reward Callback), not the
+    // optional entry-session ID.
+    const rewardTxIds: string[] = [];
     for (const item of reversed) {
       if (!isObject(item) || !isReasonableId(item.transaction_id)) return fail(400);
-      transactions.push(item.transaction_id);
+      rewardTxIds.push(item.transaction_id);
     }
 
-    for (const txId of transactions) {
+    for (const txId of rewardTxIds) {
       const outcome = await store.processReversalAtomically({
         eventId,
         userId: data.user_id,

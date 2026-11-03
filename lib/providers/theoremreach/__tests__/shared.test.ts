@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
-  callbackTxId,
+  callbackEntryTransactionId,
+  callbackRewardTxId,
   intendedPublisherCents,
   intendedRewardCents,
   intendedUserCents,
@@ -57,13 +58,20 @@ describe("TheoremReach callback field parsing (Phase 1)", () => {
     expect(isEventId(null)).toBe(false);
   });
 
-  it("uses official transaction_id as reward identity and tx_id only as an alias", () => {
-    expect(callbackTxId({ txId: null, transactionId: "transaction-1" })).toBe("transaction-1");
-    expect(callbackTxId({ txId: "tx-1", transactionId: null })).toBe("tx-1");
-    expect(callbackTxId({ txId: "same-1", transactionId: "same-1" })).toBe("same-1");
-    expect(callbackTxId({ txId: "tx-1", transactionId: "transaction-1" })).toBe(null);
-    expect(callbackTxId({ txId: "", transactionId: null })).toBe(null);
-    expect(callbackTxId({ txId: null, transactionId: null })).toBe(null);
+  it("uses provider tx_id as the reward identity, never entry transaction_id", () => {
+    expect(callbackRewardTxId({ txId: "provider-reward-1" })).toBe("provider-reward-1");
+    expect(callbackRewardTxId({ txId: "" })).toBe(null);
+    expect(callbackRewardTxId({ txId: null })).toBe(null);
+    expect(callbackRewardTxId({ txId: "<bad>" })).toBe(null);
+  });
+
+  it("parses the optional entry transaction_id separately and accepts different values", () => {
+    expect(callbackEntryTransactionId({ transactionId: "entry-session-1" })).toBe("entry-session-1");
+    expect(callbackEntryTransactionId({ transactionId: null })).toBe(null);
+    expect(callbackEntryTransactionId({ transactionId: "" })).toBe(null);
+    expect(callbackEntryTransactionId({ transactionId: "bad id" })).toBe(null);
+    expect(callbackRewardTxId({ txId: "provider-reward-1" })).toBe("provider-reward-1");
+    expect(callbackEntryTransactionId({ transactionId: "entry-session-1" })).toBe("entry-session-1");
   });
 
   it("reads all callback fields including deprecated status (never trusted)", () => {
@@ -82,6 +90,8 @@ describe("TheoremReach callback field parsing (Phase 1)", () => {
     expect(f.rewardRaw).toBe("70");
     expect(isDebugTrue(f.debugRaw)).toBe(true);
     expect(isReversalTrue(f.reversalRaw)).toBe(true);
+    expect(callbackRewardTxId(f)).toBe("tx-9");
+    expect(callbackEntryTransactionId(f)).toBe("transaction-9");
   });
 });
 
@@ -123,5 +133,15 @@ describe("TheoremReach money parsing", () => {
     expect(intendedPublisherCents("1.0000001")).toBe(null);
     expect(intendedPublisherCents("21474836.48")).toBe(null);
     expect(intendedPublisherCents("21474836.47")).toBe(THEOREMREACH_MAX_PUBLISHER_CENTS);
+  });
+
+  it("keeps the 70 cents/USD model unchanged around half-cent boundaries", () => {
+    // reward is already user cents; currency is publisher USD converted to cents.
+    expect(intendedUserCents("70")).toBe(70);
+    expect(intendedPublisherCents("1.00")).toBe(100);
+    expect(intendedPublisherCents("0.005")).toBe(1);
+    expect(intendedPublisherCents("0.004999")).toBe(0);
+    expect(intendedPublisherCents("0.014999")).toBe(1);
+    expect(intendedPublisherCents("0.015")).toBe(2);
   });
 });

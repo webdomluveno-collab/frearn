@@ -189,8 +189,8 @@ export interface BuildEntryInput {
   /** Stable Supabase auth UUID from the trusted server session. Never browser-chosen. */
   userId: string;
   /**
-   * Unique entry transaction ID. The route mints a fresh UUID per entry URL;
-   * callers may supply a fixed value ONLY for deterministic tests.
+   * Optional entry-session ID sent as `transaction_id`. The route mints a fresh
+   * UUID per entry URL; this is NOT the provider reward transaction ID.
    */
   transactionId?: string;
 }

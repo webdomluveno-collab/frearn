@@ -9,10 +9,12 @@ import {
 import { processTheoremreachCallback } from "@/lib/providers/theoremreach/process";
 import { SupabaseTheoremreachStore } from "@/lib/db/theoremreach-store";
 import {
-  callbackTxId,
+  callbackEntryTransactionId,
+  callbackRewardTxId,
   intendedPublisherCents,
   intendedUserCents,
   isDebugTrue,
+  isReasonableId,
   isReversalTrue,
   isUuid,
   readCallbackFields,
@@ -53,13 +55,14 @@ export async function GET(req: Request) {
   if (!unsignedCallbackUrl) return fail(400);
 
   // Shape validation before any trust decision. Required: reward, currency,
-  // user_id (UUID), hash, and the official transaction_id (tx_id is a legacy
-  // alias only).
+  // user_id (UUID), hash, and provider tx_id (the unique reward transaction).
+  // transaction_id is an optional entry-session ID and may differ from tx_id.
   if (typeof f.rewardRaw !== "string" || f.rewardRaw === "") return fail(400);
   if (typeof f.currencyRaw !== "string" || f.currencyRaw === "") return fail(400);
   if (!isUuid(f.userId)) return fail(400);
   if (typeof f.hash !== "string" || f.hash === "") return fail(400);
-  if (callbackTxId(f) === null) return fail(400);
+  if (callbackRewardTxId(f) === null) return fail(400);
+  if (f.transactionId !== null && !isReasonableId(f.transactionId)) return fail(400);
 
   if (f.reversalRaw !== null && f.reversalRaw !== "true" && f.reversalRaw !== "false") return fail(400);
 
@@ -78,7 +81,8 @@ export async function GET(req: Request) {
 
   try {
     const outcome = await processTheoremreachCallback(new SupabaseTheoremreachStore(), {
-      txId: callbackTxId(f)!,
+      txId: callbackRewardTxId(f)!,
+      entryTransactionId: callbackEntryTransactionId(f),
       userId: f.userId,
       reversal,
       userRewardCents,

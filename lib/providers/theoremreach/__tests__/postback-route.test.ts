@@ -1,22 +1,37 @@
-import { describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { GET, POST } from "@/app/api/providers/theoremreach/postback/route";
 import { theoremreachCallbackEndpoint, theoremreachCallbackHash } from "../server";
 
 const UID = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee";
 const KEY = "test-theoremreach-secret-postback";
 
+const mocks = vi.hoisted(() => ({
+  processRewardAtomically: vi.fn(),
+}));
+
+vi.mock("@/lib/db/theoremreach-store", () => ({
+  SupabaseTheoremreachStore: class {
+    processRewardAtomically = mocks.processRewardAtomically;
+  },
+}));
+
 function saveEnv() {
   return {
     secret: process.env.THEOREMREACH_SECRET_KEY,
     enabled: process.env.THEOREMREACH_POSTBACK_ENABLED,
+    rewardProcessing: process.env.THEOREMREACH_REWARD_PROCESSING_ENABLED,
   };
 }
 
-function restoreEnv(prev: { secret: string | undefined; enabled: string | undefined }) {
-  if (prev.secret === undefined) delete process.env.THEOREMREACH_SECRET_KEY;
-  else process.env.THEOREMREACH_SECRET_KEY = prev.secret;
-  if (prev.enabled === undefined) delete process.env.THEOREMREACH_POSTBACK_ENABLED;
-  else process.env.THEOREMREACH_POSTBACK_ENABLED = prev.enabled;
+function restoreEnv(prev: ReturnType<typeof saveEnv>) {
+  for (const [key, value] of [
+    ["THEOREMREACH_SECRET_KEY", prev.secret],
+    ["THEOREMREACH_POSTBACK_ENABLED", prev.enabled],
+    ["THEOREMREACH_REWARD_PROCESSING_ENABLED", prev.rewardProcessing],
+  ] as const) {
+    if (value === undefined) delete process.env[key];
+    else process.env[key] = value;
+  }
 }
 
 function enable() {
@@ -43,21 +58,29 @@ function live(extra: Record<string, string> = {}): string {
   });
 }
 
-function signedLive(extra: Record<string, string> = {}): string {
-  const params = new URLSearchParams({
-    reward: "70",
-    currency: "1.00",
-    user_id: UID,
-    transaction_id: "reward-transaction-1",
-    ...extra,
-  });
-  const unsignedUrl = `${theoremreachCallbackEndpoint()}?${params.toString()}`;
+function signed(params: Record<string, string>): string {
+  const unsignedUrl = `${theoremreachCallbackEndpoint()}?${new URLSearchParams(params).toString()}`;
   return `${unsignedUrl}&hash=${theoremreachCallbackHash(unsignedUrl)}`;
 }
 
-describe("GET /api/providers/theoremreach/postback — Phase 1 (no money moves)", () => {
+function signedLive(extra: Record<string, string> = {}): string {
+  return signed({
+    reward: "70",
+    currency: "1.00",
+    user_id: UID,
+    tx_id: "provider-reward-1",
+    transaction_id: "entry-session-1",
+    ...extra,
+  });
+}
+
+describe("GET /api/providers/theoremreach/postback — default OFF", () => {
   const prev = saveEnv();
   const restore = () => restoreEnv(prev);
+
+  beforeEach(() => {
+    mocks.processRewardAtomically.mockReset();
+  });
 
   it("503 when postbacks are not enabled (fail closed)", async () => {
     delete process.env.THEOREMREACH_SECRET_KEY;
@@ -106,12 +129,87 @@ describe("GET /api/providers/theoremreach/postback — Phase 1 (no money moves)"
     }
   });
 
-  it("accepts official transaction_id, verifies HMAC, but keeps financial processing disabled", async () => {
+  it("accepts provider tx_id plus a different optional transaction_id and keeps processing disabled", async () => {
     enable();
     try {
-      const res = await GET(get(signedLive()));
+      const res = await GET(get(signedLive({ tx_id: "provider-reward-1", transaction_id: "entry-session-1" })));
       expect(res.status).toBe(403);
       expect(await res.text()).toBe("0");
+    } finally {
+      restore();
+    }
+  });
+
+  it("requires provider tx_id even when transaction_id is present", async () => {
+    enable();
+    try {
+      const url = signed({
+        reward: "70",
+        currency: "1.00",
+        user_id: UID,
+        transaction_id: "entry-session-only",
+      });
+      const res = await GET(get(url));
+      expect(res.status).toBe(400);
+      expect(await res.text()).toBe("0");
+    } finally {
+      restore();
+    }
+  });
+
+  it("rejects a malformed optional transaction_id without confusing it for tx_id", async () => {
+    enable();
+    try {
+      const url = signed({
+        reward: "70",
+        currency: "1.00",
+        user_id: UID,
+        tx_id: "provider-reward-1",
+        transaction_id: "bad id",
+      });
+      const res = await GET(get(url));
+      expect(res.status).toBe(400);
+    } finally {
+      restore();
+    }
+  });
+
+  it("uses tx_id for reward identity and passes transaction_id only as entry-session audit", async () => {
+    enable();
+    process.env.THEOREMREACH_REWARD_PROCESSING_ENABLED = "true";
+    mocks.processRewardAtomically.mockResolvedValue({ outcome: "rewarded", ledgerId: "ledger-1" });
+    try {
+      const url = signedLive({ tx_id: "provider-reward-1", transaction_id: "entry-session-1" });
+      const res = await GET(get(url));
+      expect(res.status).toBe(200);
+      expect(await res.text()).toBe("1");
+      expect(mocks.processRewardAtomically).toHaveBeenCalledWith({
+        txId: "provider-reward-1",
+        entryTransactionId: "entry-session-1",
+        userId: UID,
+        reversal: false,
+        userRewardCents: 70,
+        publisherRevenueCents: 100,
+      });
+    } finally {
+      restore();
+    }
+  });
+
+  it("deduplicates by tx_id even when transaction_id differs", async () => {
+    enable();
+    process.env.THEOREMREACH_REWARD_PROCESSING_ENABLED = "true";
+    mocks.processRewardAtomically.mockResolvedValue({ outcome: "duplicate", ledgerId: "ledger-1" });
+    try {
+      const first = signedLive({ tx_id: "provider-reward-1", transaction_id: "entry-session-1" });
+      const second = signedLive({ tx_id: "provider-reward-1", transaction_id: "entry-session-2" });
+      expect((await GET(get(first))).status).toBe(200);
+      expect((await GET(get(second))).status).toBe(200);
+      expect(mocks.processRewardAtomically).toHaveBeenCalledTimes(2);
+      expect(mocks.processRewardAtomically.mock.calls[0][0].txId).toBe("provider-reward-1");
+      expect(mocks.processRewardAtomically.mock.calls[1][0].txId).toBe("provider-reward-1");
+      expect(mocks.processRewardAtomically.mock.calls[0][0].entryTransactionId).toBe("entry-session-1");
+      expect(mocks.processRewardAtomically.mock.calls[1][0].entryTransactionId).toBe("entry-session-2");
     } finally {
       restore();
     }
@@ -149,8 +247,7 @@ describe("GET /api/providers/theoremreach/postback — Phase 1 (no money moves)"
         { reward: "70", user_id: UID, tx_id: "t", hash: "h" }, // no currency
         { reward: "70", currency: "1.00", tx_id: "t", hash: "h" }, // no user
         { reward: "70", currency: "1.00", user_id: "not-a-uuid", tx_id: "t", hash: "h" },
-        { reward: "70", currency: "1.00", user_id: UID, hash: "h" }, // no transaction identity
-        { reward: "70", currency: "1.00", user_id: UID, transaction_id: "a", tx_id: "b", hash: "h" }, // ambiguous alias
+        { reward: "70", currency: "1.00", user_id: UID, hash: "h" }, // no provider tx_id
         { reward: "70", currency: "1.00", user_id: UID, tx_id: "t" }, // no hash
       ];
       for (const params of cases) {

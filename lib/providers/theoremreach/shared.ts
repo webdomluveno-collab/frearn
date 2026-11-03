@@ -8,8 +8,8 @@
  * - reward:   reward amount in app currency (user's share)
  * - currency: USD amount paid for the transaction (publisher revenue)
  * - user_id:  external Freearn user ID supplied on entry
- * - transaction_id: official Reward Callback unique conversion ID
- * - tx_id:    legacy/dashboard alias for transaction_id; never a separate key
+ * - tx_id:    provider's unique reward transaction ID (reward idempotency key)
+ * - transaction_id: optional publisher entry-session ID; never a reward key
  * - hash:     callback signature (payload formula UNPROVEN — never trusted)
  * - reversal: optional "true" for a reversal / negative transaction
  * - debug:    optional; debug=true MUST be completely ignored
@@ -81,21 +81,25 @@ export function readCallbackFields(get: (name: string) => string | null): Theore
 }
 
 /**
- * Official Reward Callback identity is `transaction_id`. The dashboard has
- * also used `tx_id` as an alias, so accept it only when `transaction_id` is
- * absent. If both are present they must be identical; otherwise the callback
- * is ambiguous and must fail closed.
+ * Provider reward identity. TheoremReach's dashboard confirms `tx_id` is the
+ * unique reward transaction ID; it is the only key used for reward
+ * idempotency. `transaction_id` is an optional entry-session ID and may have a
+ * different value, so it must never be used as a fallback reward key.
  */
-export function callbackTxId(f: Pick<TheoremreachCallbackFields, "txId" | "transactionId">): string | null {
-  const transactionId = f.transactionId;
-  const txId = f.txId;
-  if (transactionId !== null && transactionId !== undefined) {
-    if (!isReasonableId(transactionId)) return null;
-    if (txId !== null && txId !== undefined && txId !== transactionId) return null;
-    return transactionId;
-  }
-  if (isReasonableId(txId)) return txId;
-  return null;
+export function callbackRewardTxId(f: Pick<TheoremreachCallbackFields, "txId">): string | null {
+  return isReasonableId(f.txId) ? f.txId : null;
+}
+
+/**
+ * Optional publisher entry-session ID. Returns null when absent or malformed;
+ * callers that need to distinguish "absent" from "invalid" must validate the
+ * raw field separately. This value is for audit/session correlation only and
+ * never participates in reward idempotency.
+ */
+export function callbackEntryTransactionId(
+  f: Pick<TheoremreachCallbackFields, "transactionId">
+): string | null {
+  return isReasonableId(f.transactionId) ? f.transactionId : null;
 }
 
 /**

@@ -16,6 +16,7 @@ export class SupabaseTheoremreachStore implements TheoremreachStore {
       p_publisher_revenue_cents: callback.publisherRevenueCents,
       p_raw_payload: {
         tx_id: callback.txId,
+        transaction_id: callback.entryTransactionId,
         user_id: callback.userId,
         reward_cents: callback.userRewardCents,
         publisher_revenue_cents: callback.publisherRevenueCents,

@@ -3,7 +3,13 @@ import { processTheoremreachCallback, type NormalizedTheoremreachCallback, type 
 
 const UID = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee";
 const callback = (overrides: Partial<NormalizedTheoremreachCallback> = {}): NormalizedTheoremreachCallback => ({
-  txId: "tx-reward-1", userId: UID, reversal: false, userRewardCents: 70, publisherRevenueCents: 100, ...overrides,
+  txId: "tx-reward-1",
+  entryTransactionId: "entry-session-1",
+  userId: UID,
+  reversal: false,
+  userRewardCents: 70,
+  publisherRevenueCents: 100,
+  ...overrides,
 });
 
 class MemoryStore implements TheoremreachStore {
@@ -32,6 +38,20 @@ describe("TheoremReach application gate", () => {
     expect(await processTheoremreachCallback(store, callback())).toEqual({ outcome: "rewarded", ledgerId: "ledger-1" });
     expect(await processTheoremreachCallback(store, callback())).toEqual({ outcome: "duplicate", ledgerId: "ledger-1" });
     expect(store.rows.size).toBe(1);
+  });
+
+  it("deduplicates by provider tx_id, not by the optional entry transaction_id", async () => {
+    const store = new MemoryStore();
+    expect(
+      await processTheoremreachCallback(store, callback({ txId: "provider-1", entryTransactionId: "entry-1" }))
+    ).toEqual({ outcome: "rewarded", ledgerId: "ledger-1" });
+    expect(
+      await processTheoremreachCallback(store, callback({ txId: "provider-1", entryTransactionId: "entry-2" }))
+    ).toEqual({ outcome: "duplicate", ledgerId: "ledger-1" });
+    expect(
+      await processTheoremreachCallback(store, callback({ txId: "provider-2", entryTransactionId: "entry-1" }))
+    ).toEqual({ outcome: "rewarded", ledgerId: "ledger-2" });
+    expect(store.rows.size).toBe(2);
   });
 
   it("never sends Reward Callback reversals to the money RPC", async () => {
