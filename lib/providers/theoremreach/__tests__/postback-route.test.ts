@@ -48,8 +48,7 @@ function signedLive(extra: Record<string, string> = {}): string {
     reward: "70",
     currency: "1.00",
     user_id: UID,
-    transaction_id: "entry-session-1",
-    tx_id: "reward-transaction-1",
+    transaction_id: "reward-transaction-1",
     ...extra,
   });
   const unsignedUrl = `${theoremreachCallbackEndpoint()}?${params.toString()}`;
@@ -107,7 +106,7 @@ describe("GET /api/providers/theoremreach/postback — Phase 1 (no money moves)"
     }
   });
 
-  it("verifies the callback HMAC but keeps financial processing disabled in Phase 1", async () => {
+  it("accepts official transaction_id, verifies HMAC, but keeps financial processing disabled", async () => {
     enable();
     try {
       const res = await GET(get(signedLive()));
@@ -150,8 +149,8 @@ describe("GET /api/providers/theoremreach/postback — Phase 1 (no money moves)"
         { reward: "70", user_id: UID, tx_id: "t", hash: "h" }, // no currency
         { reward: "70", currency: "1.00", tx_id: "t", hash: "h" }, // no user
         { reward: "70", currency: "1.00", user_id: "not-a-uuid", tx_id: "t", hash: "h" },
-        { reward: "70", currency: "1.00", user_id: UID, hash: "h" }, // no tx identity
-        { reward: "70", currency: "1.00", user_id: UID, transaction_id: "entry-only", hash: "h" }, // entry ID is not reward ID
+        { reward: "70", currency: "1.00", user_id: UID, hash: "h" }, // no transaction identity
+        { reward: "70", currency: "1.00", user_id: UID, transaction_id: "a", tx_id: "b", hash: "h" }, // ambiguous alias
         { reward: "70", currency: "1.00", user_id: UID, tx_id: "t" }, // no hash
       ];
       for (const params of cases) {

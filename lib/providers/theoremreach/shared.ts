@@ -1,23 +1,22 @@
 /**
  * TheoremReach — shared, CLIENT-SAFE parsing and validation.
  * No secrets here. Callback URL signature verification lives in ./server.ts
- * (server-only); this module only validates its fields. Phase 1 still fails
- * closed after a valid signature (see the postback route).
+ * (server-only); this module only validates its fields. Money writes remain
+ * behind separate default-off server gates in the callback routes.
  *
- * Supplied dashboard contract (authoritative for field names):
+ * Official field contract:
  * - reward:   reward amount in app currency (user's share)
  * - currency: USD amount paid for the transaction (publisher revenue)
  * - user_id:  external Freearn user ID supplied on entry
- * - tx_id:    unique TheoremReach reward transaction ID
- * - transaction_id: optional entry/session ID; never a reward deduplication key
+ * - transaction_id: official Reward Callback unique conversion ID
+ * - tx_id:    legacy/dashboard alias for transaction_id; never a separate key
  * - hash:     callback signature (payload formula UNPROVEN — never trusted)
  * - reversal: optional "true" for a reversal / negative transaction
  * - debug:    optional; debug=true MUST be completely ignored
  * - status:   DEPRECATED — must never drive reward decisions
  *
- * Phase 1 rule: nothing in this file can write money. The pure mapping
- * helpers below document the INTENDED Phase 2 money model only; no runtime
- * processing path may call them to credit or debit.
+ * Nothing in this file can write money. The pure mapping helpers below are
+ * used only by the gated reward path.
  */
 
 export function isUuid(value: unknown): value is string {
@@ -34,6 +33,16 @@ export function isReasonableId(value: unknown): value is string {
     value.length >= 1 &&
     value.length <= 128 &&
     /^[A-Za-z0-9_:.-]+$/.test(value)
+  );
+}
+
+/** Provider-generated Event Webhook id: opaque, bounded, no whitespace/control. */
+export function isEventId(value: unknown): value is string {
+  return (
+    typeof value === "string" &&
+    value.length >= 1 &&
+    value.length <= 128 &&
+    !/[\s\u0000-\u001f\u007f]/.test(value)
   );
 }
 
@@ -72,17 +81,25 @@ export function readCallbackFields(get: (name: string) => string | null): Theore
 }
 
 /**
- * Reward identity is exclusively `tx_id`. `transaction_id` identifies the
- * entry/session and must never be used to deduplicate reward callbacks.
+ * Official Reward Callback identity is `transaction_id`. The dashboard has
+ * also used `tx_id` as an alias, so accept it only when `transaction_id` is
+ * absent. If both are present they must be identical; otherwise the callback
+ * is ambiguous and must fail closed.
  */
 export function callbackTxId(f: Pick<TheoremreachCallbackFields, "txId" | "transactionId">): string | null {
-  if (isReasonableId(f.txId)) return f.txId;
+  const transactionId = f.transactionId;
+  const txId = f.txId;
+  if (transactionId !== null && transactionId !== undefined) {
+    if (!isReasonableId(transactionId)) return null;
+    if (txId !== null && txId !== undefined && txId !== transactionId) return null;
+    return transactionId;
+  }
+  if (isReasonableId(txId)) return txId;
   return null;
 }
 
 /**
- * INTENDED Phase 2 mapping (DOCUMENT ONLY — no active credit path may use
- * these to write money in Phase 1):
+ * Reward mapping used only after the route's default-off processing gate:
  * Exchange Rate 70 + cent/cents property ⇒ `reward` already IS user cents.
  * reward=70 → 70¢. NEVER apply another 70% multiplier (that would credit
  * 49¢). Only positive integers within cap are creditable.

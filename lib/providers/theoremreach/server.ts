@@ -15,12 +15,13 @@ import { siteConfig } from "@/config/site";
  * Reward callback signature: HMAC-SHA1 over the exact canonical callback URL
  * without its `hash` parameter, Base64URL encoded as above. The canonical
  * origin comes from site configuration, never from request Host headers.
- * Signature verification does not enable money processing; Phase 1 remains
- * fail-closed after a valid signature until a separate reward-processing phase.
+ * Signature verification does not enable money processing; separate default-off
+ * gates guard the Reward Callback and Event Webhook write paths.
  */
 
 export const THEOREMREACH_ENTRY_BASE_URL = "https://theoremreach.com/respondent_entry/direct";
 export const THEOREMREACH_POSTBACK_PATH = "/api/providers/theoremreach/postback";
+export const THEOREMREACH_EVENT_WEBHOOK_PATH = "/api/providers/theoremreach/event-webhook";
 
 /** Publisher configuration: $1 USD = 70 app-currency cents. */
 export const THEOREMREACH_EXCHANGE_RATE = 70;
@@ -47,6 +48,16 @@ export function isTheoremreachPostbackEnabled(): boolean {
 /** Separate money-moving gate. Unset/false keeps verified callbacks write-free. */
 export function isTheoremreachRewardProcessingEnabled(): boolean {
   return process.env.THEOREMREACH_REWARD_PROCESSING_ENABLED === "true";
+}
+
+/** Event Webhook master switch: exact "true" plus a configured secret. */
+export function isTheoremreachEventWebhookEnabled(): boolean {
+  return secretKey() !== null && process.env.THEOREMREACH_EVENT_WEBHOOK_ENABLED === "true";
+}
+
+/** Separate Event Webhook write gate. Unset/false records nothing. */
+export function isTheoremreachEventProcessingEnabled(): boolean {
+  return process.env.THEOREMREACH_EVENT_PROCESSING_ENABLED === "true";
 }
 
 /**
@@ -81,16 +92,25 @@ export function theoremreachCallbackEndpoint(): string {
   return `${site.origin}${THEOREMREACH_POSTBACK_PATH}`;
 }
 
+/** Canonical Event Webhook endpoint; never derived from Host. */
+export function theoremreachEventWebhookEndpoint(): string {
+  const site = new URL(siteConfig.url);
+  return `${site.origin}${THEOREMREACH_EVENT_WEBHOOK_PATH}`;
+}
+
 /**
- * Rebuild the signed URL from the original raw request target. Preserve raw
+ * Rebuild a signed URL from the original raw request target. Preserve raw
  * query order and value encoding; remove only the single `hash` pair. The
  * request authority is intentionally discarded in favor of siteConfig.url.
  */
-export function theoremreachCallbackUrlWithoutHash(requestUrl: string): string | null {
+export function theoremreachUrlWithoutHash(requestUrl: string, expectedPath: string): string | null {
   let endpoint: URL;
   try {
-    endpoint = new URL(theoremreachCallbackEndpoint());
+    endpoint = new URL(siteConfig.url);
   } catch {
+    return null;
+  }
+  if (!expectedPath.startsWith("/") || expectedPath.includes("?") || expectedPath.includes("#")) {
     return null;
   }
 
@@ -100,7 +120,7 @@ export function theoremreachCallbackUrlWithoutHash(requestUrl: string): string |
   if (target.includes("#")) return null;
   const queryIndex = target.indexOf("?");
   const path = queryIndex < 0 ? target : target.slice(0, queryIndex);
-  if (path !== endpoint.pathname || queryIndex < 0) return null;
+  if (path !== expectedPath || queryIndex < 0) return null;
 
   const rawQuery = target.slice(queryIndex + 1);
   if (!rawQuery) return null;
@@ -130,6 +150,16 @@ export function theoremreachCallbackUrlWithoutHash(requestUrl: string): string |
   }
   if (hashCount !== 1) return null;
   return `${endpoint.origin}${path}${signedPairs.length ? `?${signedPairs.join("&")}` : ""}`;
+}
+
+/** Reward Callback canonical URL (legacy wrapper). */
+export function theoremreachCallbackUrlWithoutHash(requestUrl: string): string | null {
+  return theoremreachUrlWithoutHash(requestUrl, THEOREMREACH_POSTBACK_PATH);
+}
+
+/** Event Webhook canonical URL. */
+export function theoremreachEventWebhookUrlWithoutHash(requestUrl: string): string | null {
+  return theoremreachUrlWithoutHash(requestUrl, THEOREMREACH_EVENT_WEBHOOK_PATH);
 }
 
 const CALLBACK_HASH_RE = /^[A-Za-z0-9_-]{27}$/;

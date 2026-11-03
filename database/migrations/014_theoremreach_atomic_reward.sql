@@ -1,10 +1,9 @@
 -- Migration 014: atomic TheoremReach reward callback transaction.
 -- Prepared locally only. Do not apply without a separately approved rollout.
 --
--- This function intentionally handles confirmed rewards only. Reversal delivery
--- is still unresolved between Reward Callback and Event Webhook; automatic
--- reversal processing stays disabled in application code until that contract is
--- confirmed with provider test data.
+-- This function intentionally handles confirmed rewards only. Reversals and
+-- bans use the separate Event Webhook; migration 018 adds those RPCs and the
+-- reward/reversal ordering fence. Nothing here is enabled by default.
 
 create or replace function public.process_theoremreach_reward(
   p_user_id uuid,

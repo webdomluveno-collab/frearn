@@ -19,12 +19,13 @@ import {
 } from "@/lib/providers/theoremreach/shared";
 
 /**
- * TheoremReach postback — PHASE 1 (testing only).
+ * TheoremReach Reward Callback.
  *
  * - Every callback is authenticated before the database store is constructed.
  * - debug=true → 200 "1" with ZERO writes.
  * - Financial processing has a second, default-off server feature flag.
  * - `status` is deprecated and never consulted.
+ * - Reversals use the separate Event Webhook, never this callback.
  * - Nothing is logged: callback values may contain identity and amounts.
  */
 
@@ -52,7 +53,8 @@ export async function GET(req: Request) {
   if (!unsignedCallbackUrl) return fail(400);
 
   // Shape validation before any trust decision. Required: reward, currency,
-  // user_id (UUID), hash, and tx_id (the unique reward transaction ID).
+  // user_id (UUID), hash, and the official transaction_id (tx_id is a legacy
+  // alias only).
   if (typeof f.rewardRaw !== "string" || f.rewardRaw === "") return fail(400);
   if (typeof f.currencyRaw !== "string" || f.currencyRaw === "") return fail(400);
   if (!isUuid(f.userId)) return fail(400);
@@ -70,7 +72,8 @@ export async function GET(req: Request) {
   if (userRewardCents === null || publisherRevenueCents === null) return fail(400);
 
   // This separate gate defaults off, even if callback signature verification
-  // is enabled for a non-money test. Do not enable it in production in Phase 2.
+  // is enabled for a non-money test. Keep it off until the activation criteria
+  // in README §11b are approved.
   if (!isTheoremreachRewardProcessingEnabled()) return fail(403);
 
   try {
@@ -84,6 +87,7 @@ export async function GET(req: Request) {
     switch (outcome.outcome) {
       case "rewarded":
       case "duplicate":
+      case "reversal_pending":
         return ok();
       case "reversal_disabled":
         return fail(422);

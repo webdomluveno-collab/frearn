@@ -8,17 +8,25 @@ const callback = (overrides: Partial<NormalizedTheoremreachCallback> = {}): Norm
 
 class MemoryStore implements TheoremreachStore {
   rows = new Map<string, { id: string; outcome: "rewarded" | "duplicate" }>();
+  reversalPending = false;
   async processRewardAtomically(input: NormalizedTheoremreachCallback) {
     if (input.reversal) throw new Error("not called for reversal");
+    if (this.reversalPending) return { outcome: "reversal_pending" as const, ledgerId: null };
     const existing = this.rows.get(input.txId);
     if (existing) return { outcome: "duplicate" as const, ledgerId: existing.id };
     const id = `ledger-${this.rows.size + 1}`;
     this.rows.set(input.txId, { id, outcome: "rewarded" });
     return { outcome: "rewarded" as const, ledgerId: id };
   }
+  async processReversalAtomically(): Promise<never> {
+    throw new Error("not used in this test");
+  }
+  async processBanAtomically(): Promise<never> {
+    throw new Error("not used in this test");
+  }
 }
 
-describe("TheoremReach Phase 2 application gate", () => {
+describe("TheoremReach application gate", () => {
   it("delegates verified rewards to one atomic store operation", async () => {
     const store = new MemoryStore();
     expect(await processTheoremreachCallback(store, callback())).toEqual({ outcome: "rewarded", ledgerId: "ledger-1" });
@@ -26,9 +34,16 @@ describe("TheoremReach Phase 2 application gate", () => {
     expect(store.rows.size).toBe(1);
   });
 
-  it("never sends reversals to the money RPC while provider semantics are unresolved", async () => {
+  it("never sends Reward Callback reversals to the money RPC", async () => {
     const store = new MemoryStore();
     expect(await processTheoremreachCallback(store, callback({ reversal: true }))).toEqual({ outcome: "reversal_disabled" });
+    expect(store.rows.size).toBe(0);
+  });
+
+  it("returns a pending reversal as a durable no-write outcome", async () => {
+    const store = new MemoryStore();
+    store.reversalPending = true;
+    expect(await processTheoremreachCallback(store, callback())).toEqual({ outcome: "reversal_pending" });
     expect(store.rows.size).toBe(0);
   });
 

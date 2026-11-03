@@ -2,14 +2,19 @@ import { describe, expect, it } from "vitest";
 import {
   base64UrlEncode,
   buildTheoremreachEntryUrl,
+  isTheoremreachEventProcessingEnabled,
+  isTheoremreachEventWebhookEnabled,
   isTheoremreachPostbackEnabled,
   isTheoremreachWallConfigured,
   theoremreachCallbackEndpoint,
   theoremreachCallbackHash,
   theoremreachCallbackUrlWithoutHash,
+  theoremreachEventWebhookEndpoint,
+  theoremreachEventWebhookUrlWithoutHash,
   THEOREMREACH_CURRENCY_PLURAL,
   THEOREMREACH_CURRENCY_SINGULAR,
   THEOREMREACH_ENTRY_BASE_URL,
+  THEOREMREACH_EVENT_WEBHOOK_PATH,
   THEOREMREACH_EXCHANGE_RATE,
   theoremreachEntryHash,
   verifyTheoremreachCallbackHash,
@@ -73,6 +78,31 @@ describe("TheoremReach server configuration (fail closed)", () => {
     );
     withEnv({ ...FULL_ENV, THEOREMREACH_POSTBACK_ENABLED: undefined }, () =>
       expect(isTheoremreachPostbackEnabled()).toBe(false)
+    );
+  });
+
+  it("event webhook master switch requires secret and exactly true", () => {
+    withEnv({ ...FULL_ENV, THEOREMREACH_EVENT_WEBHOOK_ENABLED: "true" }, () =>
+      expect(isTheoremreachEventWebhookEnabled()).toBe(true)
+    );
+    withEnv({ ...FULL_ENV, THEOREMREACH_EVENT_WEBHOOK_ENABLED: "1" }, () =>
+      expect(isTheoremreachEventWebhookEnabled()).toBe(false)
+    );
+    withEnv(
+      { ...FULL_ENV, THEOREMREACH_EVENT_WEBHOOK_ENABLED: "true", THEOREMREACH_SECRET_KEY: undefined },
+      () => expect(isTheoremreachEventWebhookEnabled()).toBe(false)
+    );
+  });
+
+  it("event webhook write gate must be exactly true", () => {
+    withEnv({ ...FULL_ENV, THEOREMREACH_EVENT_PROCESSING_ENABLED: "true" }, () =>
+      expect(isTheoremreachEventProcessingEnabled()).toBe(true)
+    );
+    withEnv({ ...FULL_ENV, THEOREMREACH_EVENT_PROCESSING_ENABLED: "yes" }, () =>
+      expect(isTheoremreachEventProcessingEnabled()).toBe(false)
+    );
+    withEnv({ ...FULL_ENV, THEOREMREACH_EVENT_PROCESSING_ENABLED: undefined }, () =>
+      expect(isTheoremreachEventProcessingEnabled()).toBe(false)
     );
   });
 });
@@ -168,5 +198,14 @@ describe("TheoremReach reward callback URL signature", () => {
     expect(theoremreachCallbackUrlWithoutHash(`${endpoint}?reward=70&reward=71&hash=x`)).toBe(null);
     expect(theoremreachCallbackUrlWithoutHash(`${endpoint}?reward=70&%72eward=71&hash=x`)).toBe(null);
     expect(theoremreachCallbackUrlWithoutHash(`${endpoint}?reward=%E0%A4%A&hash=x`)).toBe(null);
+  });
+
+  it("uses the configured origin and preserves enc_salt for the Event Webhook", () => {
+    expect(THEOREMREACH_EVENT_WEBHOOK_PATH).toBe("/api/providers/theoremreach/event-webhook");
+    const endpoint = theoremreachEventWebhookEndpoint();
+    const rawRequest = `${endpoint}?enc_salt=event-1&hash=abc`;
+    expect(theoremreachEventWebhookUrlWithoutHash(rawRequest)).toBe(`${endpoint}?enc_salt=event-1`);
+    expect(theoremreachEventWebhookUrlWithoutHash(`${theoremreachCallbackEndpoint()}?enc_salt=event-1&hash=abc`)).toBe(null);
+    expect(theoremreachCallbackUrlWithoutHash(`${endpoint}?enc_salt=event-1&hash=abc`)).toBe(null);
   });
 });

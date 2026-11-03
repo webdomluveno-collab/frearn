@@ -5,6 +5,7 @@ import {
   intendedRewardCents,
   intendedUserCents,
   isDebugTrue,
+  isEventId,
   isReasonableId,
   isReversalTrue,
   isUuid,
@@ -47,9 +48,20 @@ describe("TheoremReach callback field parsing (Phase 1)", () => {
     expect(isReasonableId("<script>")).toBe(false);
   });
 
-  it("uses tx_id as the reward identity and never falls back to entry transaction_id", () => {
-    expect(callbackTxId({ txId: "tx-1", transactionId: "entry-1" })).toBe("tx-1");
-    expect(callbackTxId({ txId: null, transactionId: "entry-1" })).toBe(null);
+  it("accepts opaque provider event ids but rejects whitespace/control", () => {
+    expect(isEventId("abc+DEF/123==")).toBe(true);
+    expect(isEventId("a b")).toBe(false);
+    expect(isEventId("a\nb")).toBe(false);
+    expect(isEventId("")).toBe(false);
+    expect(isEventId("x".repeat(129))).toBe(false);
+    expect(isEventId(null)).toBe(false);
+  });
+
+  it("uses official transaction_id as reward identity and tx_id only as an alias", () => {
+    expect(callbackTxId({ txId: null, transactionId: "transaction-1" })).toBe("transaction-1");
+    expect(callbackTxId({ txId: "tx-1", transactionId: null })).toBe("tx-1");
+    expect(callbackTxId({ txId: "same-1", transactionId: "same-1" })).toBe("same-1");
+    expect(callbackTxId({ txId: "tx-1", transactionId: "transaction-1" })).toBe(null);
     expect(callbackTxId({ txId: "", transactionId: null })).toBe(null);
     expect(callbackTxId({ txId: null, transactionId: null })).toBe(null);
   });
@@ -59,6 +71,7 @@ describe("TheoremReach callback field parsing (Phase 1)", () => {
       reward: "70",
       currency: "1.00",
       user_id: UID,
+      transaction_id: "transaction-9",
       tx_id: "tx-9",
       hash: "abc",
       reversal: "true",

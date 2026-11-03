@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Explicit staging-only PostgreSQL test for migration 014.
+ * Explicit staging-only PostgreSQL test for migrations 014 + 018.
  *
  * Not run automatically: this script performs inserts/deletes in the supplied
  * staging database and briefly creates a test trigger for rollback testing.

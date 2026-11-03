@@ -481,13 +481,13 @@ End-to-end (needs Supabase keys + `TIMEWALL_POSTBACK_SECRET` in `.env.local`):
 4. Replay any `held_awaiting_type_confirmation` events if crediting is desired
    (no automatic backfill exists by design).
 
-## 11b. TheoremReach integration — Phase 1 / TESTING ONLY (no money moves)
+## 11b. TheoremReach integration — prepared, default OFF
 
-> Phase 1 exists to obtain real callback/entry test vectors from the
-> TheoremReach dashboard. It is NOT production-ready: no callback can
-> credit, debit, reverse, or otherwise change any balance.
+> The integration code is complete enough to test, but every money-moving and
+> Event Webhook gate defaults OFF. Do not enable it in production until the
+> provider test vectors and activation criteria below are satisfied.
 
-### 11b.1 What Phase 1 does
+### 11b.1 What is implemented
 
 - Server-only signed direct-entry URL builder (`lib/providers/theoremreach/server.ts`):
   `https://theoremreach.com/respondent_entry/direct` + `api_key`, `user_id`
@@ -496,36 +496,43 @@ End-to-end (needs Supabase keys + `TIMEWALL_POSTBACK_SECRET` in `.env.local`):
   `partner_id` (placement), `hash` = base64url HMAC-SHA1 over the pre-hash URL.
 - Authenticated wall route `GET /api/providers/theoremreach/wall`
   (401 unauthenticated / 503 unconfigured / 200 `{url}` + `private, no-store`).
-- Fail-closed postback endpoint `GET /api/providers/theoremreach/postback`:
+- Reward Callback endpoint `GET /api/providers/theoremreach/postback`:
   `debug=true` → `200 "1"` with ZERO writes (no ledger, no provider event,
-  no reversal, no fraud flag); malformed non-debug callbacks return `400`,
-  and every non-debug callback returns `403` with no persistence, even when
-  its signature is valid, until a separate reward-processing phase is approved.
+  no reversal, no fraud flag); malformed non-debug callbacks return `400`;
+  valid callbacks still return `403` while the separate reward gate is off.
+- Event Webhook endpoint `POST /api/providers/theoremreach/event-webhook`
+  for official reversal and ban events. It verifies the same HMAC-SHA1 scheme,
+  uses `enc_salt` for idempotency, and stays behind its own default-off master
+  switch and write gate.
 - Registry entry (`surveyWalls.theoremreach`) gated on api key + secret +
   placement presence. NOT exposed in the Earn UI (no tab, no card, no iframe).
 
 ### 11b.2 Publisher configuration (dashboard)
 
 - Name Freearn, Platform Web, `https://freearn.online`, currency cent/cents,
-  Exchange Rate 70, server-side callbacks. The dashboard currently shows
-  reversals enabled, but official FAQ says reversals are sent through a
-  separate Event Webhook, not the Reward Callback; reconcile this setting with
-  TheoremReach before launch. Freearn does not yet implement that webhook.
-- Intended Reward Callback URL (enter after Phase 1 is deployed):
+  Exchange Rate 70, server-side callbacks. Official documentation says
+  reversals and bans are sent through the separate Event Webhook, not the
+  Reward Callback.
+- Reward Callback URL:
   `https://freearn.online/api/providers/theoremreach/postback`
-  (TheoremReach appends all parameters itself — keep the endpoint clean).
+- Event Webhook URL:
+  `https://freearn.online/api/providers/theoremreach/event-webhook`
+  (TheoremReach appends all parameters itself — keep both endpoints clean).
 - Env (all server-only, never `NEXT_PUBLIC_`): `THEOREMREACH_API_KEY`,
   `THEOREMREACH_SECRET_KEY`, `THEOREMREACH_POSTBACK_ENABLED`,
-  `THEOREMREACH_PLACEMENT_ID`, and the separate, default-off
-  `THEOREMREACH_REWARD_PROCESSING_ENABLED` money-write gate (see `.env.example`).
+  `THEOREMREACH_PLACEMENT_ID`, the default-off
+  `THEOREMREACH_REWARD_PROCESSING_ENABLED` money-write gate, and the default-off
+  `THEOREMREACH_EVENT_WEBHOOK_ENABLED` / `THEOREMREACH_EVENT_PROCESSING_ENABLED`
+  Event Webhook gates (see `.env.example`).
 
 ### 11b.3 Intended money model (DOCUMENTED ONLY — disabled)
 
 - `reward` = future user cents, verbatim: `reward=70` → 70¢.
   NEVER apply another 70% multiplier (that would credit 49¢).
 - `currency` = publisher USD revenue: `currency=1.00` → `publisherRevenueCents=100`.
-- Pure mapping helpers + unit tests exist in `shared.ts`; no runtime credit
-  path reaches them (the postback route writes nothing at all).
+- Pure mapping helpers + unit tests exist in `shared.ts`. Runtime use is
+  gated by the default-off reward flag; while the gate is off the postback
+  route writes nothing at all.
 
 ### 11b.4 Callback authentication (verified format; financial processing disabled)
 
@@ -535,56 +542,58 @@ End-to-end (needs Supabase keys + `TIMEWALL_POSTBACK_SECRET` in `.env.local`):
 - The signed origin is taken from trusted `siteConfig.url`, never the incoming
   `Host`/`X-Forwarded-Host`; the original raw query order and encoding are kept
   while removing only the single `hash` pair. Duplicate parameters fail closed.
-- `tx_id` is the unique reward transaction ID. `transaction_id` identifies an
-  entry/session and is optional; it is never used for reward deduplication.
+- `transaction_id` is the official Reward Callback transaction identity and the
+  reward deduplication key. `tx_id` is accepted only as a legacy alias when
+  `transaction_id` is absent; if both are present and differ, the callback is
+  rejected as ambiguous.
 - `status` is deprecated and never consulted. Hash verification does not
-  enable ledger writes: valid non-debug callbacks still return `403` in Phase 1.
+  enable ledger writes: valid non-debug callbacks still return `403` while the
+  reward gate is off.
 
-### 11b.5 Safe Phase 2 code path — still disabled in production
+### 11b.5 Atomic reward and Event Webhook paths — still disabled in production
 
-The server-side Phase 2 processor is prepared behind
-`THEOREMREACH_REWARD_PROCESSING_ENABLED`, which is off unless explicitly set
-to the exact string `true`. This is separate from
-`THEOREMREACH_POSTBACK_ENABLED`: enabling callback verification alone cannot
-construct the Supabase store or write ledger/provider-event rows. Keep the
-reward gate unset/false until the activation criteria below are met. The Earn
-tab/card/iframe remains absent.
+The Reward Callback processor is behind `THEOREMREACH_REWARD_PROCESSING_ENABLED`,
+which is off unless explicitly set to the exact string `true`. This is separate
+from `THEOREMREACH_POSTBACK_ENABLED`: enabling callback verification alone
+cannot construct the Supabase store or write ledger/provider-event rows.
 
-Reward credits are deduplicated by `tx_id` with existing provider-event,
-ledger idempotency and the unique `(provider, provider_transaction_id, type)`
-constraint. A reversal debits only the confirmed original `survey_reward`
-with the same provider `tx_id` and `user_id`, using the stored original amount;
-missing originals, user mismatch, amount mismatch and repeated reversals do
-not create another debit. The original reward and reversal remain immutable
-ledger entries.
+Reward credits are deduplicated by `transaction_id` with existing
+provider-event, ledger idempotency and the unique
+`(provider, provider_transaction_id, type)` constraint. The Event Webhook has
+its own `THEOREMREACH_EVENT_WEBHOOK_ENABLED` master switch and
+`THEOREMREACH_EVENT_PROCESSING_ENABLED` write gate; both default OFF.
 
-**Reversal delivery still needs provider confirmation:** the dashboard can
-show `reversal=true` for Reward Callback, while TheoremReach's public FAQ says
-reversals are delivered through a separate Event Webhook, not the Reward
-Callback. The Event Webhook is not implemented here. Until TheoremReach confirms
-the dashboard callback behavior and its test payload, leave the processing
-gate off; orphan reversals are acknowledged as retryable and never debit.
+A reversal debits only the confirmed original `survey_reward` with the same
+provider transaction and `user_id`, using the stored original amount rather
+than the webhook amount. Missing originals, user mismatch, amount mismatch and
+repeated reversals do not create another debit. A reversal that arrives before
+its reward is recorded as `orphan_reversal`; the later reward returns
+`reversal_pending` and writes no credit. Reward and reversal share a
+transaction-scoped advisory lock, so concurrent delivery cannot leave a credit
+without its reversal. Ban events are recorded idempotently and raise one
+high-severity fraud flag when the user exists; they have no financial effect.
 
-### 11b.5a Phase 3 atomic database path — prepared locally, not applied
+### 11b.5a Database migrations — prepared locally, not applied
 
 `database/migrations/014_theoremreach_atomic_reward.sql` defines the
 service-role-only `process_theoremreach_reward(...)` RPC. It inserts the
 `provider_events` row, ledger reward and final event status inside one
-PostgreSQL function invocation/transaction. The application now calls this
-single RPC instead of separate event/ledger writes. The migration is local
-preparation only and has not been applied to Supabase.
+PostgreSQL function invocation/transaction.
 
-The RPC accepts rewards only; reversal processing remains disabled in the
-application until TheoremReach confirms the Reward Callback versus Event
-Webhook contract. No automatic reversal SQL path is included.
+`database/migrations/018_theoremreach_event_webhook.sql` replaces that RPC with
+the ordering fence and adds `process_theoremreach_reversal(...)` and
+`process_theoremreach_ban(...)`. All three are service-role-only, use
+`SECURITY DEFINER`, and are tested against the existing schema. Both migrations
+are local preparation only and have not been applied to Supabase.
 
-### 11b.6 Exact next step (Phase 2)
+### 11b.6 Exact next step
 
-The dashboard currently reports Live and does not allow Test Server Callback.
-Obtain a provider-approved callback/reversal sample or staging placement, verify
-it against the pinned HMAC vector, and resolve Reward Callback versus Event
-Webhook reversal delivery. Then review nonce/event/ledger idempotency and only
-enable the separate reward gate in a separately approved deployment.
+Obtain a provider-approved Reward Callback, reversal and ban sample (or a
+staging placement), verify them against the pinned HMAC vector, and confirm the
+documented `transaction_id` / `enc_salt` fields in real traffic. Then apply
+migrations 014 and 018 in an approved environment, run the synthetic
+concurrency suite, and enable the gates one at a time. Keep all gates OFF until
+that approval; the Earn tab/card/iframe remains absent.
 
 ## 12. Security considerations before production
 
