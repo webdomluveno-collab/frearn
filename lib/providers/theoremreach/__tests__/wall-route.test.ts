@@ -20,6 +20,7 @@ const KEYS = [
   "THEOREMREACH_REWARD_PROCESSING_ENABLED",
   "THEOREMREACH_PILOT_ENABLED",
   "THEOREMREACH_PILOT_USER_IDS",
+  "THEOREMREACH_PILOT_DEBUG_ENABLED",
 ] as const;
 
 async function withEnv(vars: Record<string, string | undefined>, fn: () => Promise<void>) {
@@ -129,6 +130,29 @@ describe("GET /api/providers/theoremreach/wall (Phase 1)", () => {
       async () => {
         mockedSession.mockResolvedValue({ id: UID, email: "pilot@example.com" });
         expect((await GET()).status).toBe(200);
+
+        mockedSession.mockResolvedValue({ id: OTHER_UID, email: "other@example.com" });
+        expect((await GET()).status).toBe(503);
+      }
+    );
+  });
+
+  it("debug pilot can open only a debug URL without reward processing", async () => {
+    await withEnv(
+      {
+        ...FULL_ENV,
+        THEOREMREACH_WALL_ENABLED: undefined,
+        THEOREMREACH_REWARD_PROCESSING_ENABLED: undefined,
+        THEOREMREACH_PILOT_ENABLED: "true",
+        THEOREMREACH_PILOT_DEBUG_ENABLED: "true",
+        THEOREMREACH_PILOT_USER_IDS: UID,
+      },
+      async () => {
+        mockedSession.mockResolvedValue({ id: UID, email: "pilot@example.com" });
+        const res = await GET();
+        expect(res.status).toBe(200);
+        const data = (await res.json()) as { url: string };
+        expect(new URL(data.url).searchParams.get("debug")).toBe("true");
 
         mockedSession.mockResolvedValue({ id: OTHER_UID, email: "other@example.com" });
         expect((await GET()).status).toBe(503);

@@ -533,8 +533,9 @@ End-to-end (needs Supabase keys + `TIMEWALL_POSTBACK_SECRET` in `.env.local`):
   `THEOREMREACH_REWARD_PROCESSING_ENABLED` money-write gate, and the default-off
   `THEOREMREACH_EVENT_WEBHOOK_ENABLED` / `THEOREMREACH_EVENT_PROCESSING_ENABLED`
   Event Webhook gates. The pilot-only `THEOREMREACH_PILOT_ENABLED` flag and
-  comma-separated `THEOREMREACH_PILOT_USER_IDS` allowlist are also server-only
-  and default to disabled/empty (see `.env.example`).
+  comma-separated `THEOREMREACH_PILOT_USER_IDS` allowlist, and
+  `THEOREMREACH_PILOT_DEBUG_ENABLED` are also server-only and default to
+  disabled/empty (see `.env.example`).
 
 ### 11b.3 Safe pilot mode
 
@@ -560,6 +561,14 @@ THEOREMREACH_EVENT_PROCESSING_ENABLED=false
 Do not start the pilot until the provider callback sample/signature and the
 single-user ledger verification plan are approved. Remove the UUID and set the
 pilot flag back to `false` immediately after the test.
+
+For a wall-only debug pilot, set `THEOREMREACH_PILOT_DEBUG_ENABLED=true` for
+the same allowlisted user while keeping
+`THEOREMREACH_REWARD_PROCESSING_ENABLED=false`. The server adds the signed
+`debug=true` parameter to the entry URL. Debug callbacks are acknowledged
+without writes, and any non-debug callback for that user is rejected before
+the reward processor. `THEOREMREACH_POSTBACK_ENABLED` is still required;
+public wall and Event Webhook processing remain off.
 
 ### 11b.4 Intended money model (DOCUMENTED ONLY — disabled)
 

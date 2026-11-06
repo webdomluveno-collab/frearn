@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getSessionUser } from "@/lib/auth/server";
 import {
   buildTheoremreachEntryUrl,
+  isTheoremreachDebugPilotUserAllowed,
   isTheoremreachWallEnabledForUser,
 } from "@/lib/providers/theoremreach/server";
 
@@ -21,7 +22,10 @@ export async function GET() {
     return NextResponse.json({ error: "wall_unavailable" }, { status: 503 });
   }
   try {
-    const url = buildTheoremreachEntryUrl({ userId: user.id });
+    const url = buildTheoremreachEntryUrl({
+      userId: user.id,
+      debug: isTheoremreachDebugPilotUserAllowed(user.id),
+    });
     return NextResponse.json({ url }, { headers: { "Cache-Control": "private, no-store" } });
   } catch {
     return NextResponse.json({ error: "wall_unavailable" }, { status: 503 });

@@ -5,10 +5,13 @@ import {
   isTheoremreachEventProcessingEnabled,
   isTheoremreachEventWebhookEnabled,
   isTheoremreachPostbackEnabled,
+  isTheoremreachDebugPilotUserAllowed,
+  isTheoremreachPilotDebugEnabled,
   isTheoremreachPilotEnabled,
   isTheoremreachPilotUserAllowed,
   isTheoremreachRewardUserAllowed,
   isTheoremreachWallEnabled,
+  isTheoremreachWallEnabledForUser,
   isTheoremreachWallConfigured,
   theoremreachCallbackEndpoint,
   theoremreachCallbackHash,
@@ -137,6 +140,25 @@ describe("TheoremReach server configuration (fail closed)", () => {
     );
   });
 
+  it("debug pilot permits only its user and does not require reward processing", () => {
+    withEnv(
+      {
+        ...FULL_ENV,
+        THEOREMREACH_WALL_ENABLED: undefined,
+        THEOREMREACH_REWARD_PROCESSING_ENABLED: undefined,
+        THEOREMREACH_PILOT_ENABLED: "true",
+        THEOREMREACH_PILOT_DEBUG_ENABLED: "true",
+        THEOREMREACH_PILOT_USER_IDS: UID,
+      },
+      () => {
+        expect(isTheoremreachPilotDebugEnabled()).toBe(true);
+        expect(isTheoremreachDebugPilotUserAllowed(UID)).toBe(true);
+        expect(isTheoremreachWallEnabledForUser(UID)).toBe(true);
+        expect(isTheoremreachWallEnabledForUser("bbbbbbbb-cccc-dddd-eeee-ffffffffffff")).toBe(false);
+      }
+    );
+  });
+
   it("event webhook master switch requires secret and exactly true", () => {
     withEnv({ ...FULL_ENV, THEOREMREACH_EVENT_WEBHOOK_ENABLED: "true" }, () =>
       expect(isTheoremreachEventWebhookEnabled()).toBe(true)
@@ -174,6 +196,16 @@ describe("TheoremReach entry URL builder (server-only)", () => {
   it("produces the exact independently-verified signed URL", () => {
     withEnv(FULL_ENV, () => {
       expect(buildTheoremreachEntryUrl({ userId: UID, transactionId: TXN })).toBe(EXPECTED_URL);
+    });
+  });
+
+  it("puts debug=true into the URL before calculating its HMAC", () => {
+    withEnv(FULL_ENV, () => {
+      const url = new URL(buildTheoremreachEntryUrl({ userId: UID, transactionId: TXN, debug: true }));
+      const hash = url.searchParams.get("hash");
+      expect(url.searchParams.get("debug")).toBe("true");
+      url.searchParams.delete("hash");
+      expect(hash).toBe(theoremreachEntryHash(url.toString()));
     });
   });
 

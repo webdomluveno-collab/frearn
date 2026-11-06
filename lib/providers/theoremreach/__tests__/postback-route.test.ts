@@ -23,6 +23,7 @@ function saveEnv() {
     wallEnabled: process.env.THEOREMREACH_WALL_ENABLED,
     pilotEnabled: process.env.THEOREMREACH_PILOT_ENABLED,
     pilotUserIds: process.env.THEOREMREACH_PILOT_USER_IDS,
+    pilotDebugEnabled: process.env.THEOREMREACH_PILOT_DEBUG_ENABLED,
   };
 }
 
@@ -34,6 +35,7 @@ function restoreEnv(prev: ReturnType<typeof saveEnv>) {
     ["THEOREMREACH_WALL_ENABLED", prev.wallEnabled],
     ["THEOREMREACH_PILOT_ENABLED", prev.pilotEnabled],
     ["THEOREMREACH_PILOT_USER_IDS", prev.pilotUserIds],
+    ["THEOREMREACH_PILOT_DEBUG_ENABLED", prev.pilotDebugEnabled],
   ] as const) {
     if (value === undefined) delete process.env[key];
     else process.env[key] = value;
@@ -185,6 +187,27 @@ describe("GET /api/providers/theoremreach/postback — default OFF", () => {
       const res = await GET(get(signedLive({ tx_id: "pilot-disabled-wall-off" })));
       expect(res.status).toBe(403);
       expect(await res.text()).toBe("0");
+      expect(mocks.processRewardAtomically).not.toHaveBeenCalled();
+    } finally {
+      restore();
+    }
+  });
+
+  it("debug pilot acknowledges debug traffic but blocks every financial callback", async () => {
+    enable();
+    process.env.THEOREMREACH_REWARD_PROCESSING_ENABLED = "true";
+    delete process.env.THEOREMREACH_WALL_ENABLED;
+    process.env.THEOREMREACH_PILOT_ENABLED = "true";
+    process.env.THEOREMREACH_PILOT_DEBUG_ENABLED = "true";
+    process.env.THEOREMREACH_PILOT_USER_IDS = UID;
+    try {
+      const debugRes = await GET(get(cb({ debug: "true", nonsense: "ignored" })));
+      expect(debugRes.status).toBe(200);
+      expect(await debugRes.text()).toBe("1");
+
+      const signedRes = await GET(get(signedLive({ tx_id: "debug-pilot-financial-block" })));
+      expect(signedRes.status).toBe(403);
+      expect(await signedRes.text()).toBe("0");
       expect(mocks.processRewardAtomically).not.toHaveBeenCalled();
     } finally {
       restore();
