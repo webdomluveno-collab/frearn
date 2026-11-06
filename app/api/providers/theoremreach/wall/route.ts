@@ -3,8 +3,33 @@ import { getSessionUser } from "@/lib/auth/server";
 import {
   buildTheoremreachEntryUrl,
   isTheoremreachDebugPilotUserAllowed,
+  isTheoremreachPilotDebugEnabled,
+  isTheoremreachPilotEnabled,
+  isTheoremreachPilotUserAllowed,
+  isTheoremreachPostbackEnabled,
+  isTheoremreachRewardProcessingEnabled,
+  isTheoremreachWallConfigured,
   isTheoremreachWallEnabledForUser,
 } from "@/lib/providers/theoremreach/server";
+
+/**
+ * A non-sensitive, single-code explanation for authenticated callers.
+ * Never echo env values, secrets, identifiers, URLs or exception details.
+ */
+function unavailableReason(userId: string): string {
+  if (!isTheoremreachPostbackEnabled()) return "postback_disabled";
+  if (!isTheoremreachWallConfigured()) return "wall_credentials_missing";
+  if (isTheoremreachPilotEnabled()) {
+    if (!isTheoremreachPilotUserAllowed(userId)) return "pilot_user_not_allowlisted";
+    if (!isTheoremreachPilotDebugEnabled() && !isTheoremreachRewardProcessingEnabled()) {
+      return "pilot_debug_and_reward_processing_disabled";
+    }
+    return "pilot_gate_denied";
+  }
+  if (process.env.THEOREMREACH_WALL_ENABLED !== "true") return "pilot_off_and_public_wall_disabled";
+  if (!isTheoremreachRewardProcessingEnabled()) return "reward_processing_disabled";
+  return "wall_gate_denied";
+}
 
 /**
  * Returns the authenticated user's personal TheoremReach entry URL.
@@ -19,7 +44,10 @@ export async function GET() {
     return NextResponse.json({ error: "unauthenticated" }, { status: 401 });
   }
   if (!isTheoremreachWallEnabledForUser(user.id)) {
-    return NextResponse.json({ error: "wall_unavailable" }, { status: 503 });
+    return NextResponse.json(
+      { error: "wall_unavailable", reason: unavailableReason(user.id) },
+      { status: 503, headers: { "Cache-Control": "private, no-store" } }
+    );
   }
   try {
     const url = buildTheoremreachEntryUrl({
@@ -28,6 +56,9 @@ export async function GET() {
     });
     return NextResponse.json({ url }, { headers: { "Cache-Control": "private, no-store" } });
   } catch {
-    return NextResponse.json({ error: "wall_unavailable" }, { status: 503 });
+    return NextResponse.json(
+      { error: "wall_unavailable", reason: "signed_url_creation_failed" },
+      { status: 503, headers: { "Cache-Control": "private, no-store" } }
+    );
   }
 }
