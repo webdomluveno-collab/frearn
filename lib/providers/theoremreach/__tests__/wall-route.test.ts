@@ -102,6 +102,65 @@ describe("GET /api/providers/theoremreach/wall (Phase 1)", () => {
     );
   });
 
+  it("503 reports a safe, specific cause for a disabled debug pilot", async () => {
+    mockedSession.mockResolvedValue({ id: UID, email: "pilot@example.com" });
+    await withEnv({
+      ...FULL_ENV,
+      THEOREMREACH_WALL_ENABLED: undefined,
+      THEOREMREACH_REWARD_PROCESSING_ENABLED: undefined,
+      THEOREMREACH_PILOT_ENABLED: "true",
+      THEOREMREACH_PILOT_DEBUG_ENABLED: undefined,
+      THEOREMREACH_PILOT_USER_IDS: UID,
+    }, async () => {
+      const res = await GET();
+      expect(res.status).toBe(503);
+      expect(res.headers.get("Cache-Control")).toBe("private, no-store");
+      const data = (await res.json()) as { error: string; reason: string; url?: string };
+      expect(data).toEqual({
+        error: "wall_unavailable",
+        reason: "pilot_debug_and_reward_processing_disabled",
+      });
+      expect(data.url).toBeUndefined();
+      expect(JSON.stringify(data)).not.toContain("test-secret-for-wall-route");
+    });
+  });
+
+  it("503 identifies an allowlist mismatch without returning user ids", async () => {
+    mockedSession.mockResolvedValue({ id: OTHER_UID, email: "other@example.com" });
+    await withEnv({
+      ...FULL_ENV,
+      THEOREMREACH_WALL_ENABLED: undefined,
+      THEOREMREACH_REWARD_PROCESSING_ENABLED: undefined,
+      THEOREMREACH_PILOT_ENABLED: "true",
+      THEOREMREACH_PILOT_DEBUG_ENABLED: "true",
+      THEOREMREACH_PILOT_USER_IDS: UID,
+    }, async () => {
+      const res = await GET();
+      expect(res.status).toBe(503);
+      const data = (await res.json()) as { reason: string };
+      expect(data.reason).toBe("pilot_user_not_allowlisted");
+      expect(JSON.stringify(data)).not.toContain(UID);
+      expect(JSON.stringify(data)).not.toContain(OTHER_UID);
+    });
+  });
+
+  it("503 distinguishes missing wall credentials from a disabled pilot", async () => {
+    mockedSession.mockResolvedValue({ id: UID, email: "pilot@example.com" });
+    await withEnv({
+      ...FULL_ENV,
+      THEOREMREACH_API_KEY: undefined,
+      THEOREMREACH_WALL_ENABLED: undefined,
+      THEOREMREACH_REWARD_PROCESSING_ENABLED: undefined,
+      THEOREMREACH_PILOT_ENABLED: "true",
+      THEOREMREACH_PILOT_DEBUG_ENABLED: "true",
+      THEOREMREACH_PILOT_USER_IDS: UID,
+    }, async () => {
+      const res = await GET();
+      expect(res.status).toBe(503);
+      expect((await res.json()).reason).toBe("wall_credentials_missing");
+    });
+  });
+
   it("200 with signed session-UUID entry URL when configured", async () => {
     mockedSession.mockResolvedValue({ id: UID, email: "t@example.com" });
     await withEnv(FULL_ENV, async () => {
