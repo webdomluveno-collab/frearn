@@ -3,15 +3,18 @@ import { DemoBrowser } from "@/components/demo-browser";
 import { SectionHeading } from "@/components/fx/primitives";
 import { getSurveyWall } from "@/lib/providers";
 import { isMockAllowed } from "@/lib/providers/mock";
+import { isTheoremreachWallEnabled } from "@/lib/providers/theoremreach/server";
 
 /**
  * Earn page. Surveys render through the authenticated CPX SurveyWall,
- * offers & games through the authenticated AdGem offerwall, and TimeWall
- * tasks through the authenticated TimeWall launcher (new-tab flow).
+ * offers & games through the authenticated AdGem offerwall, TimeWall tasks
+ * through the authenticated TimeWall launcher, and TheoremReach through its
+ * separately gated authenticated launcher (all new-tab flows).
  * No fake production surveys: demo content appears in development only.
  */
 export default function EarnPage() {
   const cpxLive = getSurveyWall("cpx")?.isConfigured() ?? false;
+  const theoremreachLive = isTheoremreachWallEnabled();
   const showDemo = isMockAllowed();
 
   return (
@@ -27,7 +30,7 @@ export default function EarnPage() {
         <div><span>02</span><p>Know the details.<small>Check rewards and requirements.</small></p></div>
         <div><span>03</span><p>Make it count.<small>Rewards wait for provider confirmation.</small></p></div>
       </div>
-      <EarnProviderTabs cpxLive={cpxLive} />
+      <EarnProviderTabs cpxLive={cpxLive} theoremreachLive={theoremreachLive} />
 
       {showDemo && <DemoBrowser />}
     </div>

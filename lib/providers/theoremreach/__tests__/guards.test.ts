@@ -27,6 +27,7 @@ describe("TheoremReach Phase 1 secret containment", () => {
     for (const f of [
       "lib/providers/theoremreach/shared.ts",
       "components/earn-provider-tabs.tsx",
+      "components/theoremreach-wall.tsx",
       "app/dashboard/earn/page.tsx",
       "app/dashboard/page.tsx",
     ]) {
@@ -75,13 +76,19 @@ describe("TheoremReach Phase 1 writes no money", () => {
   });
 });
 
-describe("TheoremReach Phase 1 Earn UI containment", () => {
-  it("Earn UI offers no working TheoremReach launch path", () => {
+describe("TheoremReach Earn UI containment", () => {
+  it("Earn UI launch path is explicitly gated and server-minted", () => {
     const tabs = codeWithoutComments("components/earn-provider-tabs.tsx").toLowerCase();
-    expect(tabs).not.toMatch(/theoremreach/);
+    expect(tabs).toMatch(/theoremreachlive/);
+    expect(tabs).toMatch(/theoremreach-wall/);
+    expect(tabs).not.toMatch(/theoremreach_(api|secret|placement)/i);
+    expect(tabs).not.toMatch(/respondent_entry|createhmac|hash=/i);
     const earn = codeWithoutComments("app/dashboard/earn/page.tsx").toLowerCase();
-    expect(earn).not.toMatch(/theoremreach/);
+    expect(earn).toMatch(/istheoremreachwallenabled/);
     const dash = codeWithoutComments("app/dashboard/page.tsx").toLowerCase();
     expect(dash).not.toMatch(/theoremreach/);
+    const wall = codeWithoutComments("components/theoremreach-wall.tsx");
+    expect(wall).toMatch(/\/api\/providers\/theoremreach\/wall/);
+    expect(wall).not.toMatch(/THEOREMREACH_(API|SECRET|PLACEMENT)/i);
   });
 });

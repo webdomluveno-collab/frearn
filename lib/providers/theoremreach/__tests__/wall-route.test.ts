@@ -10,7 +10,13 @@ import { getSessionUser } from "@/lib/auth/server";
 const UID = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee";
 const mockedSession = vi.mocked(getSessionUser);
 
-const KEYS = ["THEOREMREACH_API_KEY", "THEOREMREACH_SECRET_KEY", "THEOREMREACH_PLACEMENT_ID"] as const;
+const KEYS = [
+  "THEOREMREACH_API_KEY",
+  "THEOREMREACH_SECRET_KEY",
+  "THEOREMREACH_PLACEMENT_ID",
+  "THEOREMREACH_WALL_ENABLED",
+  "THEOREMREACH_REWARD_PROCESSING_ENABLED",
+] as const;
 
 async function withEnv(vars: Record<string, string | undefined>, fn: () => Promise<void>) {
   const prev: Record<string, string | undefined> = {};
@@ -34,6 +40,8 @@ const FULL_ENV = {
   THEOREMREACH_API_KEY: "TESTAPPKEY",
   THEOREMREACH_SECRET_KEY: "test-secret-for-wall-route",
   THEOREMREACH_PLACEMENT_ID: "TESTPLACEMENT",
+  THEOREMREACH_WALL_ENABLED: "true",
+  THEOREMREACH_REWARD_PROCESSING_ENABLED: "true",
 };
 
 describe("GET /api/providers/theoremreach/wall (Phase 1)", () => {
@@ -56,6 +64,16 @@ describe("GET /api/providers/theoremreach/wall (Phase 1)", () => {
         expect(data.url).toBeUndefined();
       }
     );
+  });
+
+  it("503 when the wall gate or reward gate is off", async () => {
+    mockedSession.mockResolvedValue({ id: UID, email: "t@example.com" });
+    await withEnv({ ...FULL_ENV, THEOREMREACH_WALL_ENABLED: undefined }, async () => {
+      expect((await GET()).status).toBe(503);
+    });
+    await withEnv({ ...FULL_ENV, THEOREMREACH_REWARD_PROCESSING_ENABLED: undefined }, async () => {
+      expect((await GET()).status).toBe(503);
+    });
   });
 
   it("200 with signed session-UUID entry URL when configured", async () => {
