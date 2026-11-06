@@ -3,7 +3,8 @@ import { DemoBrowser } from "@/components/demo-browser";
 import { SectionHeading } from "@/components/fx/primitives";
 import { getSurveyWall } from "@/lib/providers";
 import { isMockAllowed } from "@/lib/providers/mock";
-import { isTheoremreachWallEnabled } from "@/lib/providers/theoremreach/server";
+import { getSessionUser } from "@/lib/auth/server";
+import { isTheoremreachWallEnabledForUser } from "@/lib/providers/theoremreach/server";
 
 /**
  * Earn page. Surveys render through the authenticated CPX SurveyWall,
@@ -12,9 +13,10 @@ import { isTheoremreachWallEnabled } from "@/lib/providers/theoremreach/server";
  * separately gated authenticated launcher (all new-tab flows).
  * No fake production surveys: demo content appears in development only.
  */
-export default function EarnPage() {
+export default async function EarnPage() {
   const cpxLive = getSurveyWall("cpx")?.isConfigured() ?? false;
-  const theoremreachLive = isTheoremreachWallEnabled();
+  const user = await getSessionUser();
+  const theoremreachLive = isTheoremreachWallEnabledForUser(user?.id ?? null);
   const showDemo = isMockAllowed();
 
   return (

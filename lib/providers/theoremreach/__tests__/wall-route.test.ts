@@ -8,6 +8,7 @@ import { GET } from "@/app/api/providers/theoremreach/wall/route";
 import { getSessionUser } from "@/lib/auth/server";
 
 const UID = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee";
+const OTHER_UID = "bbbbbbbb-cccc-dddd-eeee-ffffffffffff";
 const mockedSession = vi.mocked(getSessionUser);
 
 const KEYS = [
@@ -16,6 +17,8 @@ const KEYS = [
   "THEOREMREACH_PLACEMENT_ID",
   "THEOREMREACH_WALL_ENABLED",
   "THEOREMREACH_REWARD_PROCESSING_ENABLED",
+  "THEOREMREACH_PILOT_ENABLED",
+  "THEOREMREACH_PILOT_USER_IDS",
 ] as const;
 
 async function withEnv(vars: Record<string, string | undefined>, fn: () => Promise<void>) {
@@ -91,5 +94,23 @@ describe("GET /api/providers/theoremreach/wall (Phase 1)", () => {
       expect(url.searchParams.get("exchange_rate")).toBe("70");
       expect(data.url).not.toContain("test-secret-for-wall-route");
     });
+  });
+
+  it("allows only the pilot UUID while public wall access is off", async () => {
+    await withEnv(
+      {
+        ...FULL_ENV,
+        THEOREMREACH_WALL_ENABLED: undefined,
+        THEOREMREACH_PILOT_ENABLED: "true",
+        THEOREMREACH_PILOT_USER_IDS: UID,
+      },
+      async () => {
+        mockedSession.mockResolvedValue({ id: UID, email: "pilot@example.com" });
+        expect((await GET()).status).toBe(200);
+
+        mockedSession.mockResolvedValue({ id: OTHER_UID, email: "other@example.com" });
+        expect((await GET()).status).toBe(503);
+      }
+    );
   });
 });

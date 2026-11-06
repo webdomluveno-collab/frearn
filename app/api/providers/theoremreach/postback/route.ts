@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { rateLimit } from "@/lib/rate-limit";
 import {
   isTheoremreachPostbackEnabled,
+  isTheoremreachRewardUserAllowed,
   isTheoremreachRewardProcessingEnabled,
   theoremreachCallbackUrlWithoutHash,
   verifyTheoremreachCallbackHash,
@@ -68,6 +69,10 @@ export async function GET(req: Request) {
 
   // Signature covers the exact canonical URL before any DB client/store exists.
   if (!verifyTheoremreachCallbackHash(unsignedCallbackUrl, f.hash)) return fail(403);
+
+  // In pilot mode, a validly signed callback may credit only an explicitly
+  // allowlisted UUID. This check is deliberately after signature validation.
+  if (!isTheoremreachRewardUserAllowed(f.userId)) return fail(403);
 
   const reversal = isReversalTrue(f.reversalRaw);
   const userRewardCents = intendedUserCents(f.rewardRaw);

@@ -5,6 +5,9 @@ import {
   isTheoremreachEventProcessingEnabled,
   isTheoremreachEventWebhookEnabled,
   isTheoremreachPostbackEnabled,
+  isTheoremreachPilotEnabled,
+  isTheoremreachPilotUserAllowed,
+  isTheoremreachRewardUserAllowed,
   isTheoremreachWallEnabled,
   isTheoremreachWallConfigured,
   theoremreachCallbackEndpoint,
@@ -91,6 +94,37 @@ describe("TheoremReach server configuration (fail closed)", () => {
     );
     withEnv({ ...FULL_ENV, THEOREMREACH_WALL_ENABLED: "true", THEOREMREACH_REWARD_PROCESSING_ENABLED: "true" }, () =>
       expect(isTheoremreachWallEnabled()).toBe(true)
+    );
+  });
+
+  it("pilot mode requires an exact allowlisted UUID and overrides public wall access", () => {
+    withEnv(
+      {
+        ...FULL_ENV,
+        THEOREMREACH_WALL_ENABLED: undefined,
+        THEOREMREACH_REWARD_PROCESSING_ENABLED: "true",
+        THEOREMREACH_PILOT_ENABLED: "true",
+        THEOREMREACH_PILOT_USER_IDS: ` ${UID.toUpperCase()} ,not-a-uuid`,
+      },
+      () => {
+        expect(isTheoremreachPilotEnabled()).toBe(true);
+        expect(isTheoremreachPilotUserAllowed(UID)).toBe(true);
+        expect(isTheoremreachPilotUserAllowed("bbbbbbbb-cccc-dddd-eeee-ffffffffffff")).toBe(false);
+        expect(isTheoremreachRewardUserAllowed(UID)).toBe(true);
+        expect(isTheoremreachRewardUserAllowed("bbbbbbbb-cccc-dddd-eeee-ffffffffffff")).toBe(false);
+      }
+    );
+    withEnv(
+      {
+        ...FULL_ENV,
+        THEOREMREACH_WALL_ENABLED: "true",
+        THEOREMREACH_PILOT_ENABLED: undefined,
+        THEOREMREACH_PILOT_USER_IDS: undefined,
+      },
+      () => {
+      expect(isTheoremreachPilotEnabled()).toBe(false);
+      expect(isTheoremreachRewardUserAllowed("bbbbbbbb-cccc-dddd-eeee-ffffffffffff")).toBe(true);
+      }
     );
   });
 
