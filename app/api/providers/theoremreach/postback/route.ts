@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { rateLimit } from "@/lib/rate-limit";
 import {
   isTheoremreachPostbackEnabled,
+  isTheoremreachDebugPilotUserAllowed,
   isTheoremreachRewardUserAllowed,
   isTheoremreachRewardProcessingEnabled,
   theoremreachCallbackUrlWithoutHash,
@@ -69,6 +70,10 @@ export async function GET(req: Request) {
 
   // Signature covers the exact canonical URL before any DB client/store exists.
   if (!verifyTheoremreachCallbackHash(unsignedCallbackUrl, f.hash)) return fail(403);
+
+  // A debug pilot may acknowledge provider traffic, but can never process a
+  // financial callback, even if the reward gate is accidentally enabled.
+  if (isTheoremreachDebugPilotUserAllowed(f.userId)) return fail(403);
 
   // In pilot mode, a validly signed callback may credit only an explicitly
   // allowlisted UUID. This check is deliberately after signature validation.

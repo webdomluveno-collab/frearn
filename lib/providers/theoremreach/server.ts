@@ -84,6 +84,11 @@ export function isTheoremreachPilotEnabled(): boolean {
   return process.env.THEOREMREACH_PILOT_ENABLED === "true";
 }
 
+/** Debug pilot mode is a non-financial wall-only mode. */
+export function isTheoremreachPilotDebugEnabled(): boolean {
+  return process.env.THEOREMREACH_PILOT_DEBUG_ENABLED === "true";
+}
+
 function theoremreachPilotUserIds(): Set<string> {
   return new Set(
     (process.env.THEOREMREACH_PILOT_USER_IDS ?? "")
@@ -98,19 +103,25 @@ export function isTheoremreachPilotUserAllowed(userId: string | null): boolean {
   return userId !== null && theoremreachPilotUserIds().has(userId.toLowerCase());
 }
 
+/** The user may receive a debug-only wall URL, never a financial callback. */
+export function isTheoremreachDebugPilotUserAllowed(userId: string | null): boolean {
+  return (
+    isTheoremreachPilotEnabled() &&
+    isTheoremreachPilotDebugEnabled() &&
+    isTheoremreachPostbackEnabled() &&
+    isTheoremreachPilotUserAllowed(userId)
+  );
+}
+
 /**
  * User-aware Earn gate. Pilot mode takes precedence over public wall access,
  * so enabling the pilot can never accidentally expose the wall to everyone.
  * Reward processing remains mandatory in both public and pilot modes.
  */
 export function isTheoremreachWallEnabledForUser(userId: string | null): boolean {
-  if (
-    !isTheoremreachPostbackEnabled() ||
-    !isTheoremreachWallConfigured() ||
-    !isTheoremreachRewardProcessingEnabled()
-  ) {
-    return false;
-  }
+  if (!isTheoremreachPostbackEnabled() || !isTheoremreachWallConfigured()) return false;
+  if (isTheoremreachDebugPilotUserAllowed(userId)) return true;
+  if (!isTheoremreachRewardProcessingEnabled()) return false;
   if (isTheoremreachPilotEnabled()) return isTheoremreachPilotUserAllowed(userId);
   return process.env.THEOREMREACH_WALL_ENABLED === "true";
 }
@@ -249,6 +260,8 @@ export interface BuildEntryInput {
    * UUID per entry URL; this is NOT the provider reward transaction ID.
    */
   transactionId?: string;
+  /** Debug-only provider acknowledgement mode; included in the signed URL. */
+  debug?: boolean;
 }
 
 /**
@@ -276,6 +289,7 @@ export function buildTheoremreachEntryUrl(input: BuildEntryInput): string {
   url.searchParams.set("exchange_rate", String(THEOREMREACH_EXCHANGE_RATE));
   url.searchParams.set("external_id", input.userId);
   url.searchParams.set("partner_id", placement);
+  if (input.debug) url.searchParams.set("debug", "true");
   const unsigned = url.toString();
   url.searchParams.set("hash", theoremreachEntryHash(unsigned));
   return url.toString();
