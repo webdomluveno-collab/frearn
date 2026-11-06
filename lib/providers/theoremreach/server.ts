@@ -104,7 +104,13 @@ export function isTheoremreachPilotUserAllowed(userId: string | null): boolean {
  * Reward processing remains mandatory in both public and pilot modes.
  */
 export function isTheoremreachWallEnabledForUser(userId: string | null): boolean {
-  if (!isTheoremreachWallConfigured() || !isTheoremreachRewardProcessingEnabled()) return false;
+  if (
+    !isTheoremreachPostbackEnabled() ||
+    !isTheoremreachWallConfigured() ||
+    !isTheoremreachRewardProcessingEnabled()
+  ) {
+    return false;
+  }
   if (isTheoremreachPilotEnabled()) return isTheoremreachPilotUserAllowed(userId);
   return process.env.THEOREMREACH_WALL_ENABLED === "true";
 }

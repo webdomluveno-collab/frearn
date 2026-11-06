@@ -95,6 +95,15 @@ describe("TheoremReach server configuration (fail closed)", () => {
     withEnv({ ...FULL_ENV, THEOREMREACH_WALL_ENABLED: "true", THEOREMREACH_REWARD_PROCESSING_ENABLED: "true" }, () =>
       expect(isTheoremreachWallEnabled()).toBe(true)
     );
+    withEnv(
+      {
+        ...FULL_ENV,
+        THEOREMREACH_WALL_ENABLED: "true",
+        THEOREMREACH_REWARD_PROCESSING_ENABLED: "true",
+        THEOREMREACH_POSTBACK_ENABLED: undefined,
+      },
+      () => expect(isTheoremreachWallEnabled()).toBe(false)
+    );
   });
 
   it("pilot mode requires an exact allowlisted UUID and overrides public wall access", () => {
