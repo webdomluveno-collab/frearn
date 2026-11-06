@@ -9,6 +9,7 @@ import {
   isTheoremreachPilotDebugEnabled,
   isTheoremreachPilotEnabled,
   isTheoremreachPilotUserAllowed,
+  parseTheoremreachPilotUserIds,
   isTheoremreachRewardUserAllowed,
   isTheoremreachWallEnabled,
   isTheoremreachWallEnabledForUser,
@@ -106,6 +107,40 @@ describe("TheoremReach server configuration (fail closed)", () => {
         THEOREMREACH_POSTBACK_ENABLED: undefined,
       },
       () => expect(isTheoremreachWallEnabled()).toBe(false)
+    );
+  });
+
+  it("parses a UUID allowlist with quoted values, JSON arrays and copy/paste format chars", () => {
+    expect(parseTheoremreachPilotUserIds(UID)).toEqual(new Set([UID]));
+    expect(parseTheoremreachPilotUserIds(`"${UID}"`)).toEqual(new Set([UID]));
+    expect(parseTheoremreachPilotUserIds(`'${UID}'`)).toEqual(new Set([UID]));
+    expect(parseTheoremreachPilotUserIds(JSON.stringify([UID.toUpperCase()]))).toEqual(new Set([UID]));
+    expect(parseTheoremreachPilotUserIds(`["${UID}", "not-a-uuid"]`)).toEqual(new Set([UID]));
+    expect(parseTheoremreachPilotUserIds(`  ${UID.slice(0, 9)}\u200B${UID.slice(9)}  `)).toEqual(new Set([UID]));
+    expect(parseTheoremreachPilotUserIds(`invalid; "${UID}"\nnot-a-uuid`)).toEqual(new Set([UID]));
+  });
+
+  it("never treats a substring or malformed list as an allowed UUID", () => {
+    for (const raw of [undefined, "", `prefix${UID}`, `${UID}suffix`, `[${UID}]`, "not-a-uuid", "[1,2]", "{}"]) {
+      expect(parseTheoremreachPilotUserIds(raw).size).toBe(0);
+    }
+    expect(parseTheoremreachPilotUserIds(JSON.stringify(["other"])).size).toBe(0);
+  });
+
+  it("supports quoted pilot UUIDs but rejects other users in the same debug pilot", () => {
+    withEnv(
+      {
+        ...FULL_ENV,
+        THEOREMREACH_WALL_ENABLED: undefined,
+        THEOREMREACH_REWARD_PROCESSING_ENABLED: undefined,
+        THEOREMREACH_PILOT_ENABLED: "true",
+        THEOREMREACH_PILOT_DEBUG_ENABLED: "true",
+        THEOREMREACH_PILOT_USER_IDS: JSON.stringify([UID]),
+      },
+      () => {
+        expect(isTheoremreachWallEnabledForUser(UID)).toBe(true);
+        expect(isTheoremreachWallEnabledForUser("bbbbbbbb-cccc-dddd-eeee-ffffffffffff")).toBe(false);
+      }
     );
   });
 
