@@ -144,6 +144,42 @@ describe("GET /api/providers/theoremreach/wall (Phase 1)", () => {
     });
   });
 
+  it("503 identifies a missing allowlist at runtime without revealing config", async () => {
+    mockedSession.mockResolvedValue({ id: UID, email: "pilot@example.com" });
+    await withEnv({
+      ...FULL_ENV,
+      THEOREMREACH_WALL_ENABLED: undefined,
+      THEOREMREACH_REWARD_PROCESSING_ENABLED: undefined,
+      THEOREMREACH_PILOT_ENABLED: "true",
+      THEOREMREACH_PILOT_DEBUG_ENABLED: "true",
+      THEOREMREACH_PILOT_USER_IDS: undefined,
+    }, async () => {
+      const res = await GET();
+      expect(res.status).toBe(503);
+      const data = (await res.json()) as { reason: string };
+      expect(data.reason).toBe("pilot_allowlist_missing_at_runtime");
+      expect(JSON.stringify(data)).not.toContain(UID);
+    });
+  });
+
+  it("503 identifies an invalid-format allowlist without echoing its contents", async () => {
+    mockedSession.mockResolvedValue({ id: UID, email: "pilot@example.com" });
+    await withEnv({
+      ...FULL_ENV,
+      THEOREMREACH_WALL_ENABLED: undefined,
+      THEOREMREACH_REWARD_PROCESSING_ENABLED: undefined,
+      THEOREMREACH_PILOT_ENABLED: "true",
+      THEOREMREACH_PILOT_DEBUG_ENABLED: "true",
+      THEOREMREACH_PILOT_USER_IDS: "\"not-a-uuid\"",
+    }, async () => {
+      const res = await GET();
+      expect(res.status).toBe(503);
+      const data = (await res.json()) as { reason: string };
+      expect(data.reason).toBe("pilot_allowlist_has_no_valid_uuids");
+      expect(JSON.stringify(data)).not.toContain("not-a-uuid");
+    });
+  });
+
   it("503 distinguishes missing wall credentials from a disabled pilot", async () => {
     mockedSession.mockResolvedValue({ id: UID, email: "pilot@example.com" });
     await withEnv({
