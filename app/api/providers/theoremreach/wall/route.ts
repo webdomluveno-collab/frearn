@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { getSessionUser } from "@/lib/auth/server";
-import { buildTheoremreachEntryUrl, isTheoremreachWallConfigured } from "@/lib/providers/theoremreach/server";
+import { buildTheoremreachEntryUrl, isTheoremreachWallEnabled } from "@/lib/providers/theoremreach/server";
 
 /**
  * Returns the authenticated user's personal TheoremReach entry URL.
@@ -14,7 +14,7 @@ export async function GET() {
   if (!user) {
     return NextResponse.json({ error: "unauthenticated" }, { status: 401 });
   }
-  if (!isTheoremreachWallConfigured()) {
+  if (!isTheoremreachWallEnabled()) {
     return NextResponse.json({ error: "wall_unavailable" }, { status: 503 });
   }
   try {

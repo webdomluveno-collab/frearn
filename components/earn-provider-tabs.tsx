@@ -1,14 +1,15 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { AdGemOfferWall } from "./adgem-offer-wall";
 import { CpxSurveyWall } from "./cpx-survey-wall";
+import { TheoremreachWall } from "./theoremreach-wall";
 import { TimewallWall } from "./timewall-wall";
 import { Badge } from "./fx/primitives";
 import { Icon } from "./fx/icon";
 
-type ProviderKey = "surveys" | "offers" | "timewall";
+type ProviderKey = "surveys" | "offers" | "timewall" | "theoremreach";
 
 interface EarnTab {
   key: ProviderKey;
@@ -21,6 +22,12 @@ const BASE_TABS: EarnTab[] = [
   { key: "offers", label: "Offers & Games", hash: "#offers" },
   { key: "timewall", label: "TimeWall", hash: "#timewall" },
 ];
+
+const THEOREMREACH_TAB: EarnTab = {
+  key: "theoremreach",
+  label: "TheoremReach",
+  hash: "#theoremreach",
+};
 
 function tabForHash(tabs: EarnTab[], hash: string): ProviderKey {
   return tabs.find((t) => t.hash === hash)?.key ?? "surveys";
@@ -37,8 +44,8 @@ function tabForHash(tabs: EarnTab[], hash: string): ProviderKey {
  * TimeWall is live for all authenticated users: its wall URL is minted
  * server-side per session and opened in a new tab.
  */
-export function EarnProviderTabs({ cpxLive }: { cpxLive: boolean }) {
-  const TABS = BASE_TABS;
+export function EarnProviderTabs({ cpxLive, theoremreachLive = false }: { cpxLive: boolean; theoremreachLive?: boolean }) {
+  const TABS = useMemo(() => (theoremreachLive ? [...BASE_TABS, THEOREMREACH_TAB] : BASE_TABS), [theoremreachLive]);
   const [selected, setSelected] = useState<ProviderKey>("surveys");
   const tabRefs = useRef<Array<HTMLButtonElement | null>>([]);
 
@@ -92,8 +99,8 @@ export function EarnProviderTabs({ cpxLive }: { cpxLive: boolean }) {
               onClick={() => select(t.key)}
               className={selected === t.key ? "selected" : ""}
             >
-              <Icon name={t.key === "surveys" ? "survey" : t.key === "timewall" ? "task" : "game"} size={18} />
-              <span className="provider-tab-copy"><strong>{t.label}</strong><small>{t.key === "surveys" ? "Share your perspective" : t.key === "offers" ? "Discover something new" : "Little tasks, more possibilities"}</small></span>
+              <Icon name={t.key === "surveys" || t.key === "theoremreach" ? "survey" : t.key === "timewall" ? "task" : "game"} size={18} />
+              <span className="provider-tab-copy"><strong>{t.label}</strong><small>{t.key === "surveys" ? "Share your perspective" : t.key === "offers" ? "Discover something new" : t.key === "theoremreach" ? "Take surveys and earn" : "Little tasks, more possibilities"}</small></span>
               <Icon name="chevron" size={17} />
             </button>
           ))}
@@ -128,6 +135,16 @@ export function EarnProviderTabs({ cpxLive }: { cpxLive: boolean }) {
                 </p>
               </div>
             )}
+          </section>
+        ) : selected === "theoremreach" ? (
+          <section aria-label="TheoremReach" className="space-y-4">
+            <div className="section-title">
+              <div>
+                <h2>TheoremReach</h2>
+                <p>Complete surveys matched to your profile and earn rewards.</p>
+              </div>
+            </div>
+            <TheoremreachWall />
           </section>
         ) : selected === "timewall" ? (
           <section aria-label="TimeWall" className="space-y-4">
@@ -185,6 +202,16 @@ export function EarnProviderTabs({ cpxLive }: { cpxLive: boolean }) {
             </span>
             <Icon name="external" size={17} />
           </button>
+          {theoremreachLive && (
+            <button onClick={() => select("theoremreach")}>
+              <span className="partner-monogram">T</span>
+              <span>
+                <strong>Share your perspective</strong>
+                <span>TheoremReach · Open in a new tab</span>
+              </span>
+              <Icon name="external" size={17} />
+            </button>
+          )}
         </div>
         <div className="feed-note">
           <Icon name="help" size={17} />

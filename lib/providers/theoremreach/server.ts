@@ -69,6 +69,19 @@ export function isTheoremreachWallConfigured(): boolean {
   return apiKey() !== null && secretKey() !== null && placementId() !== null;
 }
 
+/**
+ * Public Earn availability is a separate gate and also requires money
+ * processing to be active. A user must never be sent to a live wall while a
+ * completed survey cannot be credited safely.
+ */
+export function isTheoremreachWallEnabled(): boolean {
+  return (
+    isTheoremreachWallConfigured() &&
+    process.env.THEOREMREACH_WALL_ENABLED === "true" &&
+    isTheoremreachRewardProcessingEnabled()
+  );
+}
+
 /** URL-safe Base64 (TheoremReach substitution): + → -, / → _, strip =, no newlines. */
 export function base64UrlEncode(bytes: Uint8Array): string {
   return Buffer.from(bytes)

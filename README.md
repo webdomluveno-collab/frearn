@@ -496,7 +496,10 @@ End-to-end (needs Supabase keys + `TIMEWALL_POSTBACK_SECRET` in `.env.local`):
   `currency_name_singular=cent`, `exchange_rate=70`, `external_id` (user UUID),
   `partner_id` (placement), `hash` = base64url HMAC-SHA1 over the pre-hash URL.
 - Authenticated wall route `GET /api/providers/theoremreach/wall`
-  (401 unauthenticated / 503 unconfigured / 200 `{url}` + `private, no-store`).
+  (401 unauthenticated / 503 unconfigured or disabled / 200 `{url}` +
+  `private, no-store`). The Earn tab is shown only when
+  `THEOREMREACH_WALL_ENABLED=true` and reward processing is also explicitly
+  enabled; both gates default OFF.
 - Reward Callback endpoint `GET /api/providers/theoremreach/postback`:
   `debug=true` → `200 "1"` with ZERO writes (no ledger, no provider event,
   no reversal, no fraud flag); malformed non-debug callbacks return `400`;
@@ -505,8 +508,12 @@ End-to-end (needs Supabase keys + `TIMEWALL_POSTBACK_SECRET` in `.env.local`):
   for official reversal and ban events. It verifies the same HMAC-SHA1 scheme,
   uses `enc_salt` for idempotency, and stays behind its own default-off master
   switch and write gate.
-- Registry entry (`surveyWalls.theoremreach`) gated on api key + secret +
-  placement presence. NOT exposed in the Earn UI (no tab, no card, no iframe).
+- Registry entry (`surveyWalls.theoremreach`) remains server-only. The Earn UI
+  exposes a separate TheoremReach tab/card only when
+  `THEOREMREACH_WALL_ENABLED=true`, all wall credentials exist, and reward
+  processing is explicitly enabled. The browser only calls the authenticated
+  `/api/providers/theoremreach/wall` route and opens its server-minted URL in a
+  new tab; it never signs a URL or supplies a user ID.
 
 ### 11b.2 Publisher configuration (dashboard)
 
@@ -522,6 +529,7 @@ End-to-end (needs Supabase keys + `TIMEWALL_POSTBACK_SECRET` in `.env.local`):
 - Env (all server-only, never `NEXT_PUBLIC_`): `THEOREMREACH_API_KEY`,
   `THEOREMREACH_SECRET_KEY`, `THEOREMREACH_POSTBACK_ENABLED`,
   `THEOREMREACH_PLACEMENT_ID`, the default-off
+  `THEOREMREACH_WALL_ENABLED` Earn visibility gate, the default-off
   `THEOREMREACH_REWARD_PROCESSING_ENABLED` money-write gate, and the default-off
   `THEOREMREACH_EVENT_WEBHOOK_ENABLED` / `THEOREMREACH_EVENT_PROCESSING_ENABLED`
   Event Webhook gates (see `.env.example`).

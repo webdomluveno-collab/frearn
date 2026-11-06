@@ -5,6 +5,7 @@ import {
   isTheoremreachEventProcessingEnabled,
   isTheoremreachEventWebhookEnabled,
   isTheoremreachPostbackEnabled,
+  isTheoremreachWallEnabled,
   isTheoremreachWallConfigured,
   theoremreachCallbackEndpoint,
   theoremreachCallbackHash,
@@ -78,6 +79,18 @@ describe("TheoremReach server configuration (fail closed)", () => {
     );
     withEnv({ ...FULL_ENV, THEOREMREACH_POSTBACK_ENABLED: undefined }, () =>
       expect(isTheoremreachPostbackEnabled()).toBe(false)
+    );
+  });
+
+  it("wall availability requires its own gate and reward processing", () => {
+    withEnv({ ...FULL_ENV, THEOREMREACH_WALL_ENABLED: undefined, THEOREMREACH_REWARD_PROCESSING_ENABLED: "true" }, () =>
+      expect(isTheoremreachWallEnabled()).toBe(false)
+    );
+    withEnv({ ...FULL_ENV, THEOREMREACH_WALL_ENABLED: "true", THEOREMREACH_REWARD_PROCESSING_ENABLED: undefined }, () =>
+      expect(isTheoremreachWallEnabled()).toBe(false)
+    );
+    withEnv({ ...FULL_ENV, THEOREMREACH_WALL_ENABLED: "true", THEOREMREACH_REWARD_PROCESSING_ENABLED: "true" }, () =>
+      expect(isTheoremreachWallEnabled()).toBe(true)
     );
   });
 
