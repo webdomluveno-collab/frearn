@@ -2,6 +2,7 @@ import "server-only";
 
 import { createHmac, randomUUID, timingSafeEqual } from "node:crypto";
 import { siteConfig } from "@/config/site";
+import { isUuid } from "@/lib/providers/theoremreach/shared";
 
 /**
  * TheoremReach — SERVER-ONLY. Contains secret handling.
@@ -75,11 +76,53 @@ export function isTheoremreachWallConfigured(): boolean {
  * completed survey cannot be credited safely.
  */
 export function isTheoremreachWallEnabled(): boolean {
-  return (
-    isTheoremreachWallConfigured() &&
-    process.env.THEOREMREACH_WALL_ENABLED === "true" &&
-    isTheoremreachRewardProcessingEnabled()
+  return isTheoremreachWallEnabledForUser(null);
+}
+
+/** Pilot mode is opt-in and fail-closed when its UUID allowlist is empty. */
+export function isTheoremreachPilotEnabled(): boolean {
+  return process.env.THEOREMREACH_PILOT_ENABLED === "true";
+}
+
+function theoremreachPilotUserIds(): Set<string> {
+  return new Set(
+    (process.env.THEOREMREACH_PILOT_USER_IDS ?? "")
+      .split(",")
+      .map((value) => value.trim().toLowerCase())
+      .filter((value) => isUuid(value))
   );
+}
+
+/** Only the explicitly configured UUIDs may use the pilot wall. */
+export function isTheoremreachPilotUserAllowed(userId: string | null): boolean {
+  return userId !== null && theoremreachPilotUserIds().has(userId.toLowerCase());
+}
+
+/**
+ * User-aware Earn gate. Pilot mode takes precedence over public wall access,
+ * so enabling the pilot can never accidentally expose the wall to everyone.
+ * Reward processing remains mandatory in both public and pilot modes.
+ */
+export function isTheoremreachWallEnabledForUser(userId: string | null): boolean {
+  if (
+    !isTheoremreachPostbackEnabled() ||
+    !isTheoremreachWallConfigured() ||
+    !isTheoremreachRewardProcessingEnabled()
+  ) {
+    return false;
+  }
+  if (isTheoremreachPilotEnabled()) return isTheoremreachPilotUserAllowed(userId);
+  return process.env.THEOREMREACH_WALL_ENABLED === "true";
+}
+
+/**
+ * Callback user gate. Pilot mode uses only its UUID allowlist; outside pilot
+ * mode, public callback writes require the public wall gate explicitly. This
+ * prevents disabling the pilot from silently opening all reward callbacks.
+ */
+export function isTheoremreachRewardUserAllowed(userId: string): boolean {
+  if (isTheoremreachPilotEnabled()) return isTheoremreachPilotUserAllowed(userId);
+  return process.env.THEOREMREACH_WALL_ENABLED === "true";
 }
 
 /** URL-safe Base64 (TheoremReach substitution): + → -, / → _, strip =, no newlines. */

@@ -8,14 +8,18 @@ import { GET } from "@/app/api/providers/theoremreach/wall/route";
 import { getSessionUser } from "@/lib/auth/server";
 
 const UID = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee";
+const OTHER_UID = "bbbbbbbb-cccc-dddd-eeee-ffffffffffff";
 const mockedSession = vi.mocked(getSessionUser);
 
 const KEYS = [
   "THEOREMREACH_API_KEY",
   "THEOREMREACH_SECRET_KEY",
   "THEOREMREACH_PLACEMENT_ID",
+  "THEOREMREACH_POSTBACK_ENABLED",
   "THEOREMREACH_WALL_ENABLED",
   "THEOREMREACH_REWARD_PROCESSING_ENABLED",
+  "THEOREMREACH_PILOT_ENABLED",
+  "THEOREMREACH_PILOT_USER_IDS",
 ] as const;
 
 async function withEnv(vars: Record<string, string | undefined>, fn: () => Promise<void>) {
@@ -40,6 +44,7 @@ const FULL_ENV = {
   THEOREMREACH_API_KEY: "TESTAPPKEY",
   THEOREMREACH_SECRET_KEY: "test-secret-for-wall-route",
   THEOREMREACH_PLACEMENT_ID: "TESTPLACEMENT",
+  THEOREMREACH_POSTBACK_ENABLED: "true",
   THEOREMREACH_WALL_ENABLED: "true",
   THEOREMREACH_REWARD_PROCESSING_ENABLED: "true",
 };
@@ -76,6 +81,26 @@ describe("GET /api/providers/theoremreach/wall (Phase 1)", () => {
     });
   });
 
+  it("503 when postback is off in both public and pilot modes", async () => {
+    await withEnv({ ...FULL_ENV, THEOREMREACH_POSTBACK_ENABLED: undefined }, async () => {
+      mockedSession.mockResolvedValue({ id: UID, email: "public@example.com" });
+      expect((await GET()).status).toBe(503);
+    });
+    await withEnv(
+      {
+        ...FULL_ENV,
+        THEOREMREACH_POSTBACK_ENABLED: undefined,
+        THEOREMREACH_WALL_ENABLED: undefined,
+        THEOREMREACH_PILOT_ENABLED: "true",
+        THEOREMREACH_PILOT_USER_IDS: UID,
+      },
+      async () => {
+        mockedSession.mockResolvedValue({ id: UID, email: "pilot@example.com" });
+        expect((await GET()).status).toBe(503);
+      }
+    );
+  });
+
   it("200 with signed session-UUID entry URL when configured", async () => {
     mockedSession.mockResolvedValue({ id: UID, email: "t@example.com" });
     await withEnv(FULL_ENV, async () => {
@@ -91,5 +116,23 @@ describe("GET /api/providers/theoremreach/wall (Phase 1)", () => {
       expect(url.searchParams.get("exchange_rate")).toBe("70");
       expect(data.url).not.toContain("test-secret-for-wall-route");
     });
+  });
+
+  it("allows only the pilot UUID while public wall access is off", async () => {
+    await withEnv(
+      {
+        ...FULL_ENV,
+        THEOREMREACH_WALL_ENABLED: undefined,
+        THEOREMREACH_PILOT_ENABLED: "true",
+        THEOREMREACH_PILOT_USER_IDS: UID,
+      },
+      async () => {
+        mockedSession.mockResolvedValue({ id: UID, email: "pilot@example.com" });
+        expect((await GET()).status).toBe(200);
+
+        mockedSession.mockResolvedValue({ id: OTHER_UID, email: "other@example.com" });
+        expect((await GET()).status).toBe(503);
+      }
+    );
   });
 });

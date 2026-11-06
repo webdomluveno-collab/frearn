@@ -20,6 +20,9 @@ function saveEnv() {
     secret: process.env.THEOREMREACH_SECRET_KEY,
     enabled: process.env.THEOREMREACH_POSTBACK_ENABLED,
     rewardProcessing: process.env.THEOREMREACH_REWARD_PROCESSING_ENABLED,
+    wallEnabled: process.env.THEOREMREACH_WALL_ENABLED,
+    pilotEnabled: process.env.THEOREMREACH_PILOT_ENABLED,
+    pilotUserIds: process.env.THEOREMREACH_PILOT_USER_IDS,
   };
 }
 
@@ -28,6 +31,9 @@ function restoreEnv(prev: ReturnType<typeof saveEnv>) {
     ["THEOREMREACH_SECRET_KEY", prev.secret],
     ["THEOREMREACH_POSTBACK_ENABLED", prev.enabled],
     ["THEOREMREACH_REWARD_PROCESSING_ENABLED", prev.rewardProcessing],
+    ["THEOREMREACH_WALL_ENABLED", prev.wallEnabled],
+    ["THEOREMREACH_PILOT_ENABLED", prev.pilotEnabled],
+    ["THEOREMREACH_PILOT_USER_IDS", prev.pilotUserIds],
   ] as const) {
     if (value === undefined) delete process.env[key];
     else process.env[key] = value;
@@ -37,6 +43,7 @@ function restoreEnv(prev: ReturnType<typeof saveEnv>) {
 function enable() {
   process.env.THEOREMREACH_SECRET_KEY = KEY;
   process.env.THEOREMREACH_POSTBACK_ENABLED = "true";
+  process.env.THEOREMREACH_WALL_ENABLED = "true";
 }
 
 function get(url: string): Request {
@@ -124,6 +131,61 @@ describe("GET /api/providers/theoremreach/postback — default OFF", () => {
       const res = await GET(get(live()));
       expect(res.status).toBe(403);
       expect(await res.text()).toBe("0");
+    } finally {
+      restore();
+    }
+  });
+
+  it("pilot mode rejects a validly signed callback for a non-allowlisted UUID", async () => {
+    enable();
+    process.env.THEOREMREACH_REWARD_PROCESSING_ENABLED = "true";
+    delete process.env.THEOREMREACH_WALL_ENABLED;
+    process.env.THEOREMREACH_PILOT_ENABLED = "true";
+    process.env.THEOREMREACH_PILOT_USER_IDS = UID;
+    try {
+      const url = signed({
+        reward: "70",
+        currency: "1.00",
+        user_id: "bbbbbbbb-cccc-dddd-eeee-ffffffffffff",
+        tx_id: "pilot-denied-reward",
+      });
+      const res = await GET(get(url));
+      expect(res.status).toBe(403);
+      expect(await res.text()).toBe("0");
+      expect(mocks.processRewardAtomically).not.toHaveBeenCalled();
+    } finally {
+      restore();
+    }
+  });
+
+  it("pilot mode processes a valid signed callback for the allowlisted UUID", async () => {
+    enable();
+    process.env.THEOREMREACH_REWARD_PROCESSING_ENABLED = "true";
+    delete process.env.THEOREMREACH_WALL_ENABLED;
+    process.env.THEOREMREACH_PILOT_ENABLED = "true";
+    process.env.THEOREMREACH_PILOT_USER_IDS = UID;
+    mocks.processRewardAtomically.mockResolvedValue({ outcome: "rewarded", ledgerId: "pilot-ledger-1" });
+    try {
+      const res = await GET(get(signedLive({ tx_id: "pilot-allowed-reward" })));
+      expect(res.status).toBe(200);
+      expect(mocks.processRewardAtomically).toHaveBeenCalledTimes(1);
+      expect(mocks.processRewardAtomically.mock.calls[0][0].userId).toBe(UID);
+    } finally {
+      restore();
+    }
+  });
+
+  it("disabling pilot does not open callbacks while the public wall is off", async () => {
+    enable();
+    process.env.THEOREMREACH_REWARD_PROCESSING_ENABLED = "true";
+    delete process.env.THEOREMREACH_WALL_ENABLED;
+    delete process.env.THEOREMREACH_PILOT_ENABLED;
+    delete process.env.THEOREMREACH_PILOT_USER_IDS;
+    try {
+      const res = await GET(get(signedLive({ tx_id: "pilot-disabled-wall-off" })));
+      expect(res.status).toBe(403);
+      expect(await res.text()).toBe("0");
+      expect(mocks.processRewardAtomically).not.toHaveBeenCalled();
     } finally {
       restore();
     }

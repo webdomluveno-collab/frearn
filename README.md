@@ -532,9 +532,36 @@ End-to-end (needs Supabase keys + `TIMEWALL_POSTBACK_SECRET` in `.env.local`):
   `THEOREMREACH_WALL_ENABLED` Earn visibility gate, the default-off
   `THEOREMREACH_REWARD_PROCESSING_ENABLED` money-write gate, and the default-off
   `THEOREMREACH_EVENT_WEBHOOK_ENABLED` / `THEOREMREACH_EVENT_PROCESSING_ENABLED`
-  Event Webhook gates (see `.env.example`).
+  Event Webhook gates. The pilot-only `THEOREMREACH_PILOT_ENABLED` flag and
+  comma-separated `THEOREMREACH_PILOT_USER_IDS` allowlist are also server-only
+  and default to disabled/empty (see `.env.example`).
 
-### 11b.3 Intended money model (DOCUMENTED ONLY — disabled)
+### 11b.3 Safe pilot mode
+
+Pilot mode is fail-closed and takes precedence over public wall access. When
+`THEOREMREACH_PILOT_ENABLED=true`, only UUIDs in
+`THEOREMREACH_PILOT_USER_IDS` can see the Earn tab, receive a server-minted
+wall URL, or pass the callback user gate. The callback allowlist check happens
+only after the callback HMAC is valid; an invalid signature can never reach
+pilot processing.
+
+For one approved tester, configure the values out-of-band (never in source):
+
+```text
+THEOREMREACH_WALL_ENABLED=false
+THEOREMREACH_PILOT_ENABLED=true
+THEOREMREACH_PILOT_USER_IDS=<one approved auth.users UUID>
+THEOREMREACH_POSTBACK_ENABLED=true
+THEOREMREACH_REWARD_PROCESSING_ENABLED=true
+THEOREMREACH_EVENT_WEBHOOK_ENABLED=false
+THEOREMREACH_EVENT_PROCESSING_ENABLED=false
+```
+
+Do not start the pilot until the provider callback sample/signature and the
+single-user ledger verification plan are approved. Remove the UUID and set the
+pilot flag back to `false` immediately after the test.
+
+### 11b.4 Intended money model (DOCUMENTED ONLY — disabled)
 
 - `reward` = future user cents, verbatim: `reward=70` → 70¢.
   NEVER apply another 70% multiplier (that would credit 49¢).
@@ -545,7 +572,7 @@ End-to-end (needs Supabase keys + `TIMEWALL_POSTBACK_SECRET` in `.env.local`):
   gated by the default-off reward flag; while the gate is off the postback
   route writes nothing at all.
 
-### 11b.4 Callback authentication (verified format; financial processing disabled)
+### 11b.5 Callback authentication (verified format; financial processing disabled)
 
 - Reward callback hash: HMAC-SHA1 over the full callback URL before `hash` is
   appended, Base64URL encoded (`+`→`-`, `/`→`_`, strip `=`). An official
@@ -562,7 +589,7 @@ End-to-end (needs Supabase keys + `TIMEWALL_POSTBACK_SECRET` in `.env.local`):
   enable ledger writes: valid non-debug callbacks still return `403` while the
   reward gate is off.
 
-### 11b.5 Atomic reward and Event Webhook paths — still disabled in production
+### 11b.6 Atomic reward and Event Webhook paths — still disabled in production
 
 The Reward Callback processor is behind `THEOREMREACH_REWARD_PROCESSING_ENABLED`,
 which is off unless explicitly set to the exact string `true`. This is separate

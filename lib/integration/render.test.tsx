@@ -35,7 +35,7 @@ describe("production screens render their actual ledger inputs",()=>{
     const page=await DashboardOverview();const html=renderToStaticMarkup(shell(page));
     expect(mocks.ledger).toHaveBeenCalledWith("verified");expect(html).toContain("$0.00");expect(html).toContain("Withdraw from $0.10");
     capture("dashboard",html);
-    mocks.path="/dashboard/earn";capture("earn",renderToStaticMarkup(shell(<EarnPage/>)));
+    mocks.path="/dashboard/earn";capture("earn",renderToStaticMarkup(shell(await EarnPage())));
     mocks.path="/dashboard/transactions";capture("activity",renderToStaticMarkup(shell(<ActivityView txns={[]}/>)));
     mocks.path="/dashboard/settings";capture("settings",renderToStaticMarkup(shell(<SettingsPage/>)));
     mocks.path="/dashboard/profile";capture("profile",renderToStaticMarkup(shell(<ProfilePage/>)));
