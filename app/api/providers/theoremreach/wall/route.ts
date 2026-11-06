@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getSessionUser } from "@/lib/auth/server";
+import { isUuid } from "@/lib/providers/theoremreach/shared";
 import {
   buildTheoremreachEntryUrl,
   isTheoremreachDebugPilotUserAllowed,
@@ -20,7 +21,15 @@ function unavailableReason(userId: string): string {
   if (!isTheoremreachPostbackEnabled()) return "postback_disabled";
   if (!isTheoremreachWallConfigured()) return "wall_credentials_missing";
   if (isTheoremreachPilotEnabled()) {
-    if (!isTheoremreachPilotUserAllowed(userId)) return "pilot_user_not_allowlisted";
+    if (!isTheoremreachPilotUserAllowed(userId)) {
+      // Distinguish an environment variable absent at runtime from a configured
+      // list that does not contain this session UUID. Never echo its contents.
+      const rawAllowlist = process.env.THEOREMREACH_PILOT_USER_IDS;
+      if (!rawAllowlist?.trim()) return "pilot_allowlist_missing_at_runtime";
+      const entries = rawAllowlist.split(",").map((entry) => entry.trim());
+      if (!entries.some((entry) => isUuid(entry))) return "pilot_allowlist_has_no_valid_uuids";
+      return "pilot_user_not_allowlisted";
+    }
     if (!isTheoremreachPilotDebugEnabled() && !isTheoremreachRewardProcessingEnabled()) {
       return "pilot_debug_and_reward_processing_disabled";
     }
