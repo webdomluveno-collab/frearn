@@ -89,13 +89,50 @@ export function isTheoremreachPilotDebugEnabled(): boolean {
   return process.env.THEOREMREACH_PILOT_DEBUG_ENABLED === "true";
 }
 
+/**
+ * Parse a server-controlled UUID allowlist. Support normal comma/newline lists,
+ * quoted single values, and JSON string arrays (common environment UI formats).
+ * Still fail closed on malformed entries; only complete UUID tokens count.
+ * Neither the raw value nor the individual IDs are ever logged or returned.
+ */
+export function parseTheoremreachPilotUserIds(raw: string | undefined): Set<string> {
+  if (!raw?.trim()) return new Set();
+  const value = raw.trim();
+
+  let entries: unknown[];
+  if (value.startsWith("[")) {
+    try {
+      const parsed: unknown = JSON.parse(value);
+      if (!Array.isArray(parsed)) return new Set();
+      entries = parsed;
+    } catch {
+      return new Set();
+    }
+  } else {
+    entries = value.split(/[,;\r\n]+/);
+  }
+
+  const ids = new Set<string>();
+  for (const entry of entries) {
+    if (typeof entry !== "string") continue;
+    let candidate = entry.trim();
+    // A single quoted UUID may have been copied verbatim into Netlify.
+    if (
+      candidate.length >= 2 &&
+      ((candidate.startsWith('"') && candidate.endsWith('"')) ||
+        (candidate.startsWith("'") && candidate.endsWith("'")))
+    ) {
+      candidate = candidate.slice(1, -1).trim();
+    }
+    // Zero-width formatting characters can arrive through copy/paste.
+    candidate = candidate.replace(/[\u200B-\u200D\u2060\uFEFF]/g, "").trim().toLowerCase();
+    if (isUuid(candidate)) ids.add(candidate);
+  }
+  return ids;
+}
+
 function theoremreachPilotUserIds(): Set<string> {
-  return new Set(
-    (process.env.THEOREMREACH_PILOT_USER_IDS ?? "")
-      .split(",")
-      .map((value) => value.trim().toLowerCase())
-      .filter((value) => isUuid(value))
-  );
+  return parseTheoremreachPilotUserIds(process.env.THEOREMREACH_PILOT_USER_IDS);
 }
 
 /** Only the explicitly configured UUIDs may use the pilot wall. */
