@@ -144,6 +144,28 @@ describe("GET /api/providers/theoremreach/wall (Phase 1)", () => {
     });
   });
 
+  it("accepts a JSON-array allowlist in debug mode without enabling money", async () => {
+    await withEnv({
+      ...FULL_ENV,
+      THEOREMREACH_WALL_ENABLED: undefined,
+      THEOREMREACH_REWARD_PROCESSING_ENABLED: undefined,
+      THEOREMREACH_PILOT_ENABLED: "true",
+      THEOREMREACH_PILOT_DEBUG_ENABLED: "true",
+      THEOREMREACH_PILOT_USER_IDS: JSON.stringify([UID]),
+    }, async () => {
+      mockedSession.mockResolvedValue({ id: UID, email: "pilot@example.com" });
+      const res = await GET();
+      expect(res.status).toBe(200);
+      const data = (await res.json()) as { url: string };
+      expect(new URL(data.url).searchParams.get("debug")).toBe("true");
+
+      mockedSession.mockResolvedValue({ id: OTHER_UID, email: "other@example.com" });
+      const denied = await GET();
+      expect(denied.status).toBe(503);
+      expect((await denied.json()).reason).toBe("pilot_user_not_allowlisted");
+    });
+  });
+
   it("503 identifies a missing allowlist at runtime without revealing config", async () => {
     mockedSession.mockResolvedValue({ id: UID, email: "pilot@example.com" });
     await withEnv({
