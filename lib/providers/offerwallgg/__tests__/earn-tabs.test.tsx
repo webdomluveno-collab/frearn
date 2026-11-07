@@ -14,20 +14,35 @@ describe("Offerwall.GG admin preview gate", () => {
     render(<EarnProviderTabs cpxLive={false} />);
     expect(screen.queryByRole("tab", { name: "Offerwall.GG Preview" })).not.toBeInTheDocument();
     expect(screen.queryByText(/Offerwall.GG Preview/)).not.toBeInTheDocument();
+    expect(document.querySelector("iframe")).toBeNull();
   });
 
-  it("shows a no-money preview to an authorized admin", async () => {
+  it("embeds a no-money iframe for an authorized admin, as with CPX", async () => {
     const url = "https://offerwall.gg/wall/0123456789abcdef0123456789abcdef?signature=abcdef";
     const fn = vi.fn(async () => ({ ok: true, json: async () => ({ url, previewOnly: true }) }));
     vi.stubGlobal("fetch", fn);
     render(<EarnProviderTabs cpxLive={false} offerwallggPreview />);
     fireEvent.click(screen.getByRole("tab", { name: "Offerwall.GG Preview" }));
-    const link = (await screen.findByRole("link", { name: /open offerwall.gg preview/i })) as HTMLAnchorElement;
-    expect(link.href).toBe(url);
-    expect(link.target).toBe("_blank");
-    expect(link.rel).toContain("noopener");
-    expect(link.rel).toContain("noreferrer");
+    const frame = (await screen.findByTitle(/Offerwall.GG — admin preview only/i)) as HTMLIFrameElement;
+    expect(frame.src).toBe(url);
+    expect(frame.getAttribute("sandbox")).toBe("allow-scripts allow-same-origin allow-forms allow-popups");
+    expect(frame.getAttribute("allow")).toBe("clipboard-write");
+    expect(frame.parentElement).toHaveClass("wall-frame");
     expect(screen.getByText(/rewards disabled/i)).toBeInTheDocument();
+    const fallback = screen.getByRole("link", { name: /open the preview in a new tab/i }) as HTMLAnchorElement;
+    expect(fallback.href).toBe(url);
+    expect(fallback.target).toBe("_blank");
+    expect(fallback.rel).toContain("noopener");
+    expect(fallback.rel).toContain("noreferrer");
     expect(fn).toHaveBeenCalledWith("/api/providers/offerwallgg/wall", { credentials: "same-origin" });
+  });
+
+  it("refuses to embed an accidentally attributable URL", async () => {
+    const url = "https://offerwall.gg/wall/0123456789abcdef0123456789abcdef?userId=someone&signature=abcdef";
+    vi.stubGlobal("fetch", vi.fn(async () => ({ ok: true, json: async () => ({ url, previewOnly: true }) })));
+    render(<EarnProviderTabs cpxLive={false} offerwallggPreview />);
+    fireEvent.click(screen.getByRole("tab", { name: "Offerwall.GG Preview" }));
+    expect(await screen.findByRole("alert")).toBeInTheDocument();
+    expect(screen.queryByTitle(/Offerwall.GG — admin preview only/i)).not.toBeInTheDocument();
   });
 });
