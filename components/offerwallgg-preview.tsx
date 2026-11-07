@@ -62,7 +62,7 @@ export function OfferwallggPreview() {
         ) : (
           <>
             <p><strong>Offerwall.GG is ready.</strong></p>
-            <p className="muted">Check each offer's requirements before you start. Rewards are credited after the provider confirms completion.</p>
+            <p className="muted">Check each offer&apos;s requirements before you start. Rewards are credited after the provider confirms completion.</p>
           </>
         )}
       </div>

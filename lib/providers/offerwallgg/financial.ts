@@ -89,7 +89,7 @@ export async function reconcileOfferwallggConversion(txId: string): Promise<Reco
   const rawUnits = apiUnits4(row.currencyAmount);
   const rawRevenue = typeof row.payoutUsd === "number" ? Math.abs(row.payoutUsd) : null;
   const cents = payoutUsdCents(rawRevenue);
-  if (rawUnits === null || cents === null || (row.status === "credited" && rawUnits < 0n)) {
+  if (rawUnits === null || cents === null || (row.status === "credited" && rawUnits < BigInt(0))) {
     throw new OfferwallggReconciliationError("api_invalid_money");
   }
 

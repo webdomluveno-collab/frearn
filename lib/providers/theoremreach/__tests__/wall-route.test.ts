@@ -199,7 +199,7 @@ describe("GET /api/providers/theoremreach/wall (Phase 1)", () => {
       expect(res.status).toBe(503);
       const data = (await res.json()) as { reason: string };
       expect(data.reason).toBe("pilot_allowlist_runtime_value_too_short");
-      expect((data as { diagnostics_version: string }).diagnostics_version).toBe("allowlist-v8");
+      expect((data as unknown as { diagnostics_version: string }).diagnostics_version).toBe("allowlist-v8");
       expect(JSON.stringify(data)).not.toContain("not-a-uuid");
     });
   });

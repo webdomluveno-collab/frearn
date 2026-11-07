@@ -15,7 +15,10 @@ const KEY = "0123456789abcdef0123456789abcdef";
 const SECRET = "test-secret-for-offerwallgg";
 const USER = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee";
 const TX = "e794d89342e0c468f6dd81205999425b";
-const rpc = vi.fn(async (_name: string, _params: Record<string, unknown>) => ({ data: [] as unknown[], error: null as unknown }));
+const rpc = vi.fn(async (_name: string, _params: Record<string, unknown>): Promise<{ data: unknown[] | null; error: unknown }> => ({
+  data: [],
+  error: null,
+}));
 
 afterEach(() => { vi.unstubAllGlobals(); vi.clearAllMocks(); });
 
@@ -222,6 +225,15 @@ describe("Offerwall.GG live gates and reconciled money callbacks", () => {
       rpc.mockResolvedValue({ data: null, error: { message: "database not ready" } });
       vi.mocked(getSupabaseAdmin).mockReturnValue({ rpc } as unknown as ReturnType<typeof getSupabaseAdmin>);
       expect((await postbackGET(signedRequest("60", "0"))).status).toBe(503);
+    });
+  });
+
+  it("fails closed and leaves the RPC untouched when the provider API times out", async () => {
+    await withEnv(LIVE, async () => {
+      vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new Error("timeout")));
+      vi.mocked(getSupabaseAdmin).mockReturnValue({ rpc } as unknown as ReturnType<typeof getSupabaseAdmin>);
+      expect((await postbackGET(signedRequest("60", "0"))).status).toBe(503);
+      expect(rpc).not.toHaveBeenCalled();
     });
   });
 

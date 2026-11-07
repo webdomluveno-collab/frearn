@@ -16,7 +16,7 @@ import { FxAppShell } from "@/components/fx/app-shell";
 import { WalletView } from "@/components/fx/wallet-view";
 const mocks=vi.hoisted(()=>({ledger:vi.fn(),path:"/dashboard"}));
 vi.mock("next/navigation",()=>({usePathname:()=>mocks.path,useRouter:()=>({refresh:vi.fn(),push:vi.fn()})}));
-vi.mock("@/lib/auth/server",()=>({getSessionUser:async()=>({id:"verified",email:"a-very-long-account-name-for-layout-checks@example.com"})}));
+vi.mock("@/lib/auth/server",()=>({getSessionUser:async()=>({id:"verified",email:"a-very-long-account-name-for-layout-checks@example.com"}),isAdminEmail:()=>false}));
 vi.mock("@/lib/db/wallet",()=>({getMyLedger:mocks.ledger}));
 vi.mock("@/lib/providers/mock",()=>({isMockAllowed:()=>false}));
 vi.mock("@/lib/providers",()=>({getSurveyWall:()=>({isConfigured:()=>false})}));
