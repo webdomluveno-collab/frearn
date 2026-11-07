@@ -1,43 +1,46 @@
-# Offerwall.GG — safe staged integration
+# Offerwall.GG: safe live-integration rollout
 
-Official publisher documentation:
-- https://offerwall.gg/developers/quickstart
-- https://offerwall.gg/developers/postbacks
-- https://offerwall.gg/legal/publisher-terms
+Documentation: https://offerwall.gg/developers/quickstart and https://offerwall.gg/developers/postbacks
 
-## Current state: preview/test ONLY (NO EARNING)
+## Rewards: 60% users / 40% Freearn
 
-- The site verification file already lives at /offerwall.txt.
-- Admin-only **iframe** preview inside Earn (same `.wall-frame` layout as CPX) is enabled only with OFFERWALLGG_PREVIEW_ENABLED=true, an ADMIN_EMAILS allowlisted login, a valid 32-hex public placement key, and its secret.
-- Preview URLs deliberately **omit userId**. The provider says this disables attributable clicks. The iframe also rejects any URL containing userId/userid before rendering.
-- Add `freearn.online` to the Offerwall.GG placement's **Allowed embedding domains** when this restriction is enabled. The browser enforces the provider's frame-ancestors CSP, so the iframe may otherwise appear blank. Preview in a separate tab is provided as fallback.
-- Test GET callback verifies HMAC-SHA256 over userId:transactionId:currencyAmount and returns "1" only when test=1.
-- **Every real callback returns 503.** There are no DB writes and no misleading "credited" acknowledgements.
-- DO NOT put a live earning wall in front of users with this integration. DO NOT turn on real traffic until atomic reward/reversal logic is added and tested.
+- In the actual Offerwall.GG publisher placement, set **Units per USD earned = 60**.
+- Keep the currency as **Cent** (each unit is one U.S. cent).
+- A provider conversion yielding $1 pays 60 Cent to the user; Freearn keeps $0.40 before reversals, costs and taxes.
+- Former conversions at 70 units/USD keep their ORIGINAL signed amounts; never reprice them.
+- The callback `currencyAmount` already holds the amount owed to the user. Do NOT multiply by 0.60 a second time.
+- The Decimals shown field only controls the wall display, not the callback's fractional precision.
 
-## Needed Netlify variables for preview
+## Preview (already operational)
 
-- OFFERWALLGG_PUBLIC_KEY (32 lower/upper hex characters, public placement key)
-- OFFERWALLGG_SECRET_KEY (server-only, Functions scope; never NEXT_PUBLIC)
-- OFFERWALLGG_PREVIEW_ENABLED=true (optional; defaults OFF)
-- OFFERWALLGG_TEST_POSTBACK_ENABLED=true (optional; defaults OFF)
-- OFFERWALLGG_LINK_EXPIRY_ENABLED=true only if placement enforces expiring signed links
-- Existing ADMIN_EMAILS must include the pilot's login email.
+- The admin-only iframe preview is controlled by OFFERWALLGG_PREVIEW_ENABLED=true.
+- Existing settings: OFFERWALLGG_PUBLIC_KEY, OFFERWALLGG_SECRET_KEY, OFFERWALLGG_TEST_POSTBACK_ENABLED=true.
+- Ensure verified placement, supported embedding domains, and server-side signed wall links.
 
-The placement must be **verified and active**. If site verification is pending, check /offerwall.txt from a browser and request a new placement verification in the provider dashboard.
+## New financial gates: DEFAULT OFF
 
-Provider test callback URL (GET, no macros; provider will append fields):
+- OFFERWALLGG_POSTBACK_ENABLED=false (set true only when real callback validation is ready).
+- OFFERWALLGG_REWARD_PROCESSING_ENABLED=false (set true only after safe database RPC rollout).
+- OFFERWALLGG_WALL_ENABLED=false (public earning requires all three gates plus service role).
+
+GET or POST (form-urlencoded) callback endpoint:
 https://freearn.online/api/providers/offerwallgg/postback
 
-## Financial blocking issues, BEFORE a live launch
+- HMAC-SHA256 verification over the exact `userId:transactionId:currencyAmount` bytes.
+- Real callbacks additionally reconcile against authenticated GET /api/v1/conversions and its authoritative status/payout.
+- Database RPC process_offerwallgg_conversion is the ONLY writer; its SQL file is database/migrations/019_offerwallgg_atomic_rewards.sql.
+- It keeps 4 decimal places of a Cent and accumulates fractional cents across conversions.
+- It serializes writes by user and transaction, deduplicates events, and protects reversal-before-credit.
+- Tests with test=1 are acknowledged only with test gate on, and never write money.
+- Failed provider checks, DB errors and API lag return non-2xx to trigger provider retries.
 
-1. Freearn's balances are integer **cents**. Placement was previously discussed as **700 units per USD** (not 70); a raw callback for 700 units MUST NOT be stored as 700 cents ($7). The mapping and rounding policy must be confirmed against the actual placement configuration.
-2. currencyAmount can contain up to four fractional decimals; define exact rounding/subcent accumulation, avoiding floating-point arithmetic and under/overcredit.
-3. Implement **atomic**, service-role-only ledger and provider-event RPCs with idempotency by transactionId, reversal-before-credit handling and consistent postback retries.
-4. The postback signature only authenticates userId, transactionId, currencyAmount; it **does not** sign payoutUsd, status, test, or offer details. Any financial publisherRevenueCents must be reconciled against the authenticated /api/v1/conversions API, and status/test handling must be safe.
-5. Reversal uses same transactionId with a negative amount. Ensure a reversal doesn't get treated as a duplicate or allow a late credit afterward.
-6. Keep the preview separate from any financial launcher and do not send an unsigned or non-attributed wall to real users.
+## Before enabling public earning
 
-## Publisher cashflow
+1. Confirm the Offerwall.GG dashboard actually SAVED 60 units/USD, the 'Cent' currency and verified website.
+2. Configure the postback URL with no macros (Offerwall.GG appends fields), and enable Require signature for wall links.
+3. Build and test this branch in preview without financial variables enabled.
+4. Review and safely apply the SQL RPC on Supabase; check for security advisories. Existing ledger remains untouched at deployment.
+5. Exercise the official dashboard's signed test callback, forged signature rejection, and a small real credit/reversal in a controlled pilot.
+6. Only with passing database and pilot checks, enable postback processing first and public wall last.
 
-Offerwall.GG minimum $30 cleared, NET30 from month-end. FaucetPay can arrive within minutes AFTER being paid, not immediately after a conversion. It is NOT an instant cash reserve for Freearn.
+Do not confuse fast crypto transfer after payout with real publisher payout terms (NET30; $30 minimum).
