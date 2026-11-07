@@ -119,6 +119,7 @@ describe("GET /api/providers/theoremreach/wall (Phase 1)", () => {
       expect(data).toEqual({
         error: "wall_unavailable",
         reason: "pilot_debug_and_reward_processing_disabled",
+        diagnostics_version: "allowlist-v8",
       });
       expect(data.url).toBeUndefined();
       expect(JSON.stringify(data)).not.toContain("test-secret-for-wall-route");
@@ -197,8 +198,32 @@ describe("GET /api/providers/theoremreach/wall (Phase 1)", () => {
       const res = await GET();
       expect(res.status).toBe(503);
       const data = (await res.json()) as { reason: string };
-      expect(data.reason).toBe("pilot_allowlist_has_no_valid_uuids");
+      expect(data.reason).toBe("pilot_allowlist_runtime_value_too_short");
+      expect((data as { diagnostics_version: string }).diagnostics_version).toBe("allowlist-v8");
       expect(JSON.stringify(data)).not.toContain("not-a-uuid");
+    });
+  });
+
+  it.each([
+    { raw: `invalid ${UID} note`, expected: "pilot_allowlist_runtime_uuid_wrapped_unrecognized" },
+    { raw: `xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx—`, expected: "pilot_allowlist_runtime_has_non_ascii" },
+    { raw: "a-placeholder-value-that-contains-no-uuid", expected: "pilot_allowlist_runtime_has_no_uuid_text" },
+  ])("503 diagnoses malformed runtime shape without revealing values: $expected", async ({ raw, expected }) => {
+    mockedSession.mockResolvedValue({ id: UID, email: "pilot@example.com" });
+    await withEnv({
+      ...FULL_ENV,
+      THEOREMREACH_WALL_ENABLED: undefined,
+      THEOREMREACH_REWARD_PROCESSING_ENABLED: undefined,
+      THEOREMREACH_PILOT_ENABLED: "true",
+      THEOREMREACH_PILOT_DEBUG_ENABLED: "true",
+      THEOREMREACH_PILOT_USER_IDS: raw,
+    }, async () => {
+      const res = await GET();
+      expect(res.status).toBe(503);
+      const data = (await res.json()) as { reason: string; diagnostics_version: string };
+      expect(data).toMatchObject({ reason: expected, diagnostics_version: "allowlist-v8" });
+      expect(JSON.stringify(data)).not.toContain(UID);
+      expect(JSON.stringify(data)).not.toContain(raw);
     });
   });
 
