@@ -8,10 +8,10 @@ export const MAX_OFFERWALLGG_CENTS = 1_000_000;
 
 export function decimalUnits4(value: string): bigint | null {
   if (typeof value !== "string" || !/^-?(?:0|[1-9]\d{0,6})(?:\.\d{1,4})?$/.test(value)) return null;
-  const sign = value.startsWith("-") ? -1n : 1n;
-  const [whole, frac = ""] = (sign === -1n ? value.slice(1) : value).split(".");
-  const scaled = BigInt(whole) * 10000n + BigInt((frac + "0000").slice(0, 4));
-  if (scaled === 0n || scaled > BigInt(MAX_OFFERWALLGG_CENTS) * 10000n) return null;
+  const sign = value.startsWith("-") ? -BigInt(1) : BigInt(1);
+  const [whole, frac = ""] = (sign === -BigInt(1) ? value.slice(1) : value).split(".");
+  const scaled = BigInt(whole) * BigInt(10000) + BigInt((frac + "0000").slice(0, 4));
+  if (scaled === BigInt(0) || scaled > BigInt(MAX_OFFERWALLGG_CENTS) * BigInt(10000)) return null;
   return sign * scaled;
 }
 

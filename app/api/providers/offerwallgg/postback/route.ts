@@ -44,7 +44,7 @@ async function handle(params: URLSearchParams, req: Request): Promise<Response> 
   const units4 = decimalUnits4(f.currencyAmount);
   if (units4 === null) return fail(400);
   if (!["credited", "reversed"].includes(f.status)) return fail(400);
-  if ((f.status === "credited" && units4 < 0n) || (f.status === "reversed" && units4 > 0n)) {
+  if ((f.status === "credited" && units4 < BigInt(0)) || (f.status === "reversed" && units4 > BigInt(0))) {
     return fail(400);
   }
 
@@ -77,7 +77,7 @@ async function handle(params: URLSearchParams, req: Request): Promise<Response> 
       // Provider current state is reversed, but we got a late old credit
       // callback. Hold the reversal first; then record the now-voided credit.
       // Any failure causes retry, keeping the sequence replay-safe.
-      await record("reversed", -((units4 < 0n) ? -units4 : units4));
+      await record("reversed", -((units4 < BigInt(0)) ? -units4 : units4));
       await record("credited", units4);
     } else {
       await record(f.status as "credited" | "reversed", units4);

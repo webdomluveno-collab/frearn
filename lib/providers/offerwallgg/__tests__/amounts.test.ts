@@ -3,12 +3,12 @@ import { apiUnits4, decimalUnits4, payoutUsdCents } from "../amounts";
 
 describe("Offerwall.GG precision without double 60% allocation", () => {
   it.each([
-    ["60", 600000n],
-    ["70", 700000n],
-    ["0.0001", 1n],
-    ["0.42", 4200n],
-    ["12.3456", 123456n],
-    ["-12.3456", -123456n],
+    ["60", BigInt(600000)],
+    ["70", BigInt(700000)],
+    ["0.0001", BigInt(1)],
+    ["0.42", BigInt(4200)],
+    ["12.3456", BigInt(123456)],
+    ["-12.3456", -BigInt(123456)],
   ])("keeps the exact signed units in cents %s", (value, expected) => {
     expect(decimalUnits4(value)).toBe(expected);
   });
@@ -16,9 +16,9 @@ describe("Offerwall.GG precision without double 60% allocation", () => {
     expect(decimalUnits4(value)).toBeNull();
   });
   it("matches API numeric values including historical 70-unit rewards", () => {
-    expect(apiUnits4(60.125)).toBe(601250n);
-    expect(apiUnits4(70)).toBe(700000n);
-    expect(apiUnits4(-60.5)).toBe(-605000n);
+    expect(apiUnits4(60.125)).toBe(BigInt(601250));
+    expect(apiUnits4(70)).toBe(BigInt(700000));
+    expect(apiUnits4(-60.5)).toBe(-BigInt(605000));
   });
   it("rounds authenticated publisher USD to cents", () => {
     expect(payoutUsdCents(1)).toBe(100);
