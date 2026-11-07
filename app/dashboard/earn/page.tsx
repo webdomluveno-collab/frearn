@@ -9,9 +9,10 @@ import { isTheoremreachWallEnabledForUser } from "@/lib/providers/theoremreach/s
 
 /**
  * Earn page. Surveys render through the authenticated CPX SurveyWall,
- * offers & games through the authenticated AdGem offerwall, TimeWall tasks
- * through the authenticated TimeWall launcher, and TheoremReach through its
- * separately gated authenticated launcher (all new-tab flows).
+ * TimeWall tasks through its authenticated launcher, and TheoremReach
+ * through a separately gated authenticated launcher. The admin-only
+ * Offerwall.GG iframe preview replaces the empty AdGem tab in the interface.
+ * Financial Offerwall.GG rewards remain disabled.
  * No fake production surveys: demo content appears in development only.
  */
 export default async function EarnPage() {

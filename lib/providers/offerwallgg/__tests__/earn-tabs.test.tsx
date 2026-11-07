@@ -17,6 +17,23 @@ describe("Offerwall.GG admin preview gate", () => {
     expect(document.querySelector("iframe")).toBeNull();
   });
 
+  it("places the Offerwall.GG preview immediately after CPX for admins", () => {
+    render(<EarnProviderTabs cpxLive={false} offerwallggPreview />);
+    expect(screen.getAllByRole("tab").map((t) => t.getAttribute("aria-label"))).toEqual([
+      "Surveys", "Offerwall.GG Preview", "TimeWall",
+    ]);
+    expect(screen.queryByRole("tab", { name: "Offers & Games" })).not.toBeInTheDocument();
+    expect(screen.getAllByRole("button").filter((b) => b.closest(".partner-list")).map((b) => b.textContent)).toEqual(
+      expect.arrayContaining([expect.stringContaining("CPX Research"), expect.stringContaining("Offerwall.GG Preview")])
+    );
+  });
+
+  it("routes legacy #offers bookmarks to preview only for authorized admins", () => {
+    window.history.replaceState(null, "", "#offers");
+    render(<EarnProviderTabs cpxLive={false} offerwallggPreview />);
+    expect(screen.getByRole("tab", { name: "Offerwall.GG Preview" })).toHaveAttribute("aria-selected", "true");
+  });
+
   it("embeds a no-money iframe for an authorized admin, as with CPX", async () => {
     const url = "https://offerwall.gg/wall/0123456789abcdef0123456789abcdef?signature=abcdef";
     const fn = vi.fn(async () => ({ ok: true, json: async () => ({ url, previewOnly: true }) }));
