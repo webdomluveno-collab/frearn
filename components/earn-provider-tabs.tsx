@@ -2,7 +2,6 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { AdGemOfferWall } from "./adgem-offer-wall";
 import { CpxSurveyWall } from "./cpx-survey-wall";
 import { TheoremreachWall } from "./theoremreach-wall";
 import { TimewallWall } from "./timewall-wall";
@@ -10,7 +9,7 @@ import { OfferwallggPreview } from "./offerwallgg-preview";
 import { Badge } from "./fx/primitives";
 import { Icon } from "./fx/icon";
 
-type ProviderKey = "surveys" | "offers" | "timewall" | "theoremreach" | "offerwallgg";
+type ProviderKey = "surveys" | "timewall" | "theoremreach" | "offerwallgg";
 
 interface EarnTab {
   key: ProviderKey;
@@ -20,7 +19,6 @@ interface EarnTab {
 
 const BASE_TABS: EarnTab[] = [
   { key: "surveys", label: "Surveys", hash: "#surveys" },
-  { key: "offers", label: "Offers & Games", hash: "#offers" },
   { key: "timewall", label: "TimeWall", hash: "#timewall" },
 ];
 
@@ -33,13 +31,15 @@ const THEOREMREACH_TAB: EarnTab = {
 const OFFERWALLGG_PREVIEW_TAB: EarnTab = { key: "offerwallgg", label: "Offerwall.GG Preview", hash: "#offerwallgg" };
 
 function tabForHash(tabs: EarnTab[], hash: string): ProviderKey {
+  // The old empty AdGem tab is retired. Preserve existing #offers bookmarks.
+  if (hash === "#offers") return tabs.some((t) => t.key === "offerwallgg") ? "offerwallgg" : "timewall";
   return tabs.find((t) => t.hash === hash)?.key ?? "surveys";
 }
 
 /**
  * Earn provider selector. Accessible tablist (arrow-key navigation, roving
- * tabindex); only the selected provider's panel is mounted (CPX/AdGem walls
- * render a single third-party iframe; TimeWall opens in a new tab).
+ * tabindex); only the selected provider's panel is mounted (CPX and the
+ * admin-only Offerwall.GG preview use iframes; TimeWall opens in a new tab).
  * Defaults to Surveys (existing UX).
  * The selection syncs to the URL hash so provider cards elsewhere can
  * deep-link to a tab without full-page navigation.
@@ -48,7 +48,7 @@ function tabForHash(tabs: EarnTab[], hash: string): ProviderKey {
  * server-side per session and opened in a new tab.
  */
 export function EarnProviderTabs({ cpxLive, theoremreachLive = false, offerwallggPreview = false }: { cpxLive: boolean; theoremreachLive?: boolean; offerwallggPreview?: boolean }) {
-  const TABS = useMemo(() => [...BASE_TABS, ...(theoremreachLive ? [THEOREMREACH_TAB] : []), ...(offerwallggPreview ? [OFFERWALLGG_PREVIEW_TAB] : [])], [theoremreachLive, offerwallggPreview]);
+  const TABS = useMemo(() => [BASE_TABS[0], ...(offerwallggPreview ? [OFFERWALLGG_PREVIEW_TAB] : []), BASE_TABS[1], ...(theoremreachLive ? [THEOREMREACH_TAB] : [])], [theoremreachLive, offerwallggPreview]);
   const [selected, setSelected] = useState<ProviderKey>("surveys");
   const tabRefs = useRef<Array<HTMLButtonElement | null>>([]);
 
@@ -103,7 +103,7 @@ export function EarnProviderTabs({ cpxLive, theoremreachLive = false, offerwallg
               className={selected === t.key ? "selected" : ""}
             >
               <Icon name={t.key === "surveys" || t.key === "theoremreach" ? "survey" : t.key === "timewall" ? "task" : "game"} size={18} />
-              <span className="provider-tab-copy"><strong>{t.label}</strong><small>{t.key === "surveys" ? "Share your perspective" : t.key === "offers" ? "Discover something new" : t.key === "theoremreach" ? "Take surveys and earn" : t.key === "offerwallgg" ? "Admin-only, no rewards" : "Little tasks, more possibilities"}</small></span>
+              <span className="provider-tab-copy"><strong>{t.label}</strong><small>{t.key === "surveys" ? "Share your perspective" : t.key === "theoremreach" ? "Take surveys and earn" : t.key === "offerwallgg" ? "Admin-only, no rewards" : "Little tasks, more possibilities"}</small></span>
               <Icon name="chevron" size={17} />
             </button>
           ))}
@@ -164,17 +164,7 @@ export function EarnProviderTabs({ cpxLive, theoremreachLive = false, offerwallg
             </div>
             <TimewallWall />
           </section>
-        ) : (
-          <section aria-label="Offers and games" className="space-y-4">
-            <div className="section-title">
-              <div>
-                <h2>Offers &amp; Games</h2>
-                <p>Complete offers, games, and tasks to earn rewards. Availability varies.</p>
-              </div>
-            </div>
-            <AdGemOfferWall />
-          </section>
-        )}
+        ) : null}
       </div>
 
       <section className="partner-section">
@@ -194,14 +184,13 @@ export function EarnProviderTabs({ cpxLive, theoremreachLive = false, offerwallg
             </span>
             <Icon name="external" size={17} />
           </button>
-          <button onClick={() => select("offers")}>
-            <span className="partner-monogram">A</span>
-            <span>
-              <strong>Try something new</strong>
-              <span>AdGem · Available now</span>
-            </span>
-            <Icon name="external" size={17} />
-          </button>
+          {offerwallggPreview && (
+            <button onClick={() => select("offerwallgg")}>
+              <span className="partner-monogram">O</span>
+              <span><strong>Offerwall.GG Preview</strong><span>Admin-only · No rewards</span></span>
+              <Icon name="external" size={17} />
+            </button>
+          )}
           <button onClick={() => select("timewall")}>
             <span className="partner-monogram">T</span>
             <span>
@@ -210,13 +199,6 @@ export function EarnProviderTabs({ cpxLive, theoremreachLive = false, offerwallg
             </span>
             <Icon name="external" size={17} />
           </button>
-          {offerwallggPreview && (
-            <button onClick={() => select("offerwallgg")}>
-              <span className="partner-monogram">O</span>
-              <span><strong>Offerwall.GG Preview</strong><span>Admin-only · No rewards</span></span>
-              <Icon name="external" size={17} />
-            </button>
-          )}
           {theoremreachLive && (
             <button onClick={() => select("theoremreach")}>
               <span className="partner-monogram">T</span>

@@ -82,7 +82,7 @@ export default async function DashboardOverview() {
         </div>
         <div className="provider-shelf">
           <Link
-            href="/dashboard/earn?provider=surveys"
+            href="/dashboard/earn#surveys"
             className="provider-card"
             aria-label={`Surveys, ${cpxLive ? "available now" : "preparing for your region"}`}
           >
@@ -96,16 +96,16 @@ export default async function DashboardOverview() {
             <Icon name="chevron" size={18} />
           </Link>
           <Link
-            href="/dashboard/earn?provider=offers"
+            href="/dashboard/earn#timewall"
             className="provider-card"
-            aria-label="Offers and games, availability varies"
+            aria-label="TimeWall tasks and surveys"
           >
             <OpportunityArt
-              opportunity={{ art: "garden", accent: "green", category: "offers", title: "offers", wordmark: ["OFFERS", "& GAMES"] }}
+              opportunity={{ art: "garden", accent: "green", category: "offers", title: "tasks", wordmark: ["TIME", "WALL"] }}
             />
             <div>
-              <h3>Offers &amp; Games</h3>
-              <span>Availability varies</span>
+              <h3>TimeWall</h3>
+              <span>Surveys, games &amp; tasks</span>
             </div>
             <Icon name="chevron" size={18} />
           </Link>
