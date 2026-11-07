@@ -5,6 +5,7 @@ import { getSurveyWall } from "@/lib/providers";
 import { isMockAllowed } from "@/lib/providers/mock";
 import { getSessionUser, isAdminEmail } from "@/lib/auth/server";
 import { isOfferwallggPreviewEnabled } from "@/lib/providers/offerwallgg/server";
+import { isOfferwallggLiveEnabled } from "@/lib/providers/offerwallgg/financial";
 import { isTheoremreachWallEnabledForUser } from "@/lib/providers/theoremreach/server";
 
 /**
@@ -19,7 +20,8 @@ export default async function EarnPage() {
   const cpxLive = getSurveyWall("cpx")?.isConfigured() ?? false;
   const user = await getSessionUser();
   const theoremreachLive = isTheoremreachWallEnabledForUser(user?.id ?? null);
-  const offerwallggPreview = isAdminEmail(user?.email) && isOfferwallggPreviewEnabled();
+  const offerwallggLive = isOfferwallggLiveEnabled();
+  const offerwallggPreview = !offerwallggLive && isAdminEmail(user?.email) && isOfferwallggPreviewEnabled();
   const showDemo = isMockAllowed();
 
   return (
@@ -35,7 +37,7 @@ export default async function EarnPage() {
         <div><span>02</span><p>Know the details.<small>Check rewards and requirements.</small></p></div>
         <div><span>03</span><p>Make it count.<small>Rewards wait for provider confirmation.</small></p></div>
       </div>
-      <EarnProviderTabs cpxLive={cpxLive} theoremreachLive={theoremreachLive} offerwallggPreview={offerwallggPreview} />
+      <EarnProviderTabs cpxLive={cpxLive} theoremreachLive={theoremreachLive} offerwallggPreview={offerwallggPreview} offerwallggLive={offerwallggLive} />
 
       {showDemo && <DemoBrowser />}
     </div>
