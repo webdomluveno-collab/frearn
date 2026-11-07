@@ -46,7 +46,7 @@ describe("Offerwall.GG admin preview gate", () => {
     expect(frame.getAttribute("allow")).toBe("clipboard-write");
     expect(frame.parentElement).toHaveClass("wall-frame");
     expect(screen.getByText(/rewards disabled/i)).toBeInTheDocument();
-    const fallback = screen.getByRole("link", { name: /open the preview in a new tab/i }) as HTMLAnchorElement;
+    const fallback = screen.getByRole("link", { name: /open the wall in a new tab/i }) as HTMLAnchorElement;
     expect(fallback.href).toBe(url);
     expect(fallback.target).toBe("_blank");
     expect(fallback.rel).toContain("noopener");
@@ -61,5 +61,20 @@ describe("Offerwall.GG admin preview gate", () => {
     fireEvent.click(screen.getByRole("tab", { name: "Offerwall.GG Preview" }));
     expect(await screen.findByRole("alert")).toBeInTheDocument();
     expect(screen.queryByTitle(/Offerwall.GG — admin preview only/i)).not.toBeInTheDocument();
+  });
+});
+
+describe("Offerwall.GG public live UI", () => {
+  it("shows a real wall tab only when the server enables the live feature", async () => {
+    const user = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee";
+    const url = "https://offerwall.gg/wall/0123456789abcdef0123456789abcdef?userId=" + user + "&signature=abcdef";
+    vi.stubGlobal("fetch", vi.fn(async () => ({ ok: true, json: async () => ({ url, previewOnly: false }) })));
+    render(<EarnProviderTabs cpxLive={false} offerwallggLive />);
+    expect(screen.getAllByRole("tab").map((x) => x.getAttribute("aria-label"))).toEqual([
+      "Surveys", "Offerwall.GG", "TimeWall",
+    ]);
+    fireEvent.click(screen.getByRole("tab", { name: "Offerwall.GG" }));
+    expect(await screen.findByTitle("Offerwall.GG — offers and surveys")).toHaveAttribute("src",url);
+    expect(screen.queryByText(/rewards disabled/i)).not.toBeInTheDocument();
   });
 });
