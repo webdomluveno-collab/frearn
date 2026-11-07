@@ -27,7 +27,14 @@ function unavailableReason(userId: string): string {
       const rawAllowlist = process.env.THEOREMREACH_PILOT_USER_IDS;
       if (!rawAllowlist?.trim()) return "pilot_allowlist_missing_at_runtime";
       if (parseTheoremreachPilotUserIds(rawAllowlist).size === 0) {
-        return "pilot_allowlist_has_no_valid_uuids";
+        // Diagnostics deliberately reveal only a broad character category,
+        // never raw environment values or user IDs.
+        if (rawAllowlist.length < 32) return "pilot_allowlist_runtime_value_too_short";
+        if (/[^\\x00-\\x7F]/.test(rawAllowlist)) return "pilot_allowlist_runtime_has_non_ascii";
+        if (/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i.test(rawAllowlist)) {
+          return "pilot_allowlist_runtime_uuid_wrapped_unrecognized";
+        }
+        return "pilot_allowlist_runtime_has_no_uuid_text";
       }
       return "pilot_user_not_allowlisted";
     }
@@ -55,7 +62,7 @@ export async function GET() {
   }
   if (!isTheoremreachWallEnabledForUser(user.id)) {
     return NextResponse.json(
-      { error: "wall_unavailable", reason: unavailableReason(user.id) },
+      { error: "wall_unavailable", reason: unavailableReason(user.id), diagnostics_version: "allowlist-v8" },
       { status: 503, headers: { "Cache-Control": "private, no-store" } }
     );
   }
