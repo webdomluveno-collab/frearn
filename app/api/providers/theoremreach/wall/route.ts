@@ -30,7 +30,7 @@ function unavailableReason(userId: string): string {
         // Diagnostics deliberately reveal only a broad character category,
         // never raw environment values or user IDs.
         if (rawAllowlist.length < 32) return "pilot_allowlist_runtime_value_too_short";
-        if (/[^\\x00-\\x7F]/.test(rawAllowlist)) return "pilot_allowlist_runtime_has_non_ascii";
+        if ([...rawAllowlist].some((c) => c.charCodeAt(0) > 127)) return "pilot_allowlist_runtime_has_non_ascii";
         if (/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i.test(rawAllowlist)) {
           return "pilot_allowlist_runtime_uuid_wrapped_unrecognized";
         }
