@@ -8,8 +8,9 @@ Official publisher documentation:
 ## Current state: preview/test ONLY (NO EARNING)
 
 - The site verification file already lives at /offerwall.txt.
-- Admin-only preview in Earn is enabled only with OFFERWALLGG_PREVIEW_ENABLED=true, an ADMIN_EMAILS allowlisted login, a valid 32-hex public placement key, and its secret.
-- Preview URLs deliberately **omit userId**. The provider says this disables attributable clicks.
+- Admin-only **iframe** preview inside Earn (same `.wall-frame` layout as CPX) is enabled only with OFFERWALLGG_PREVIEW_ENABLED=true, an ADMIN_EMAILS allowlisted login, a valid 32-hex public placement key, and its secret.
+- Preview URLs deliberately **omit userId**. The provider says this disables attributable clicks. The iframe also rejects any URL containing userId/userid before rendering.
+- Add `freearn.online` to the Offerwall.GG placement's **Allowed embedding domains** when this restriction is enabled. The browser enforces the provider's frame-ancestors CSP, so the iframe may otherwise appear blank. Preview in a separate tab is provided as fallback.
 - Test GET callback verifies HMAC-SHA256 over userId:transactionId:currencyAmount and returns "1" only when test=1.
 - **Every real callback returns 503.** There are no DB writes and no misleading "credited" acknowledgements.
 - DO NOT put a live earning wall in front of users with this integration. DO NOT turn on real traffic until atomic reward/reversal logic is added and tested.
