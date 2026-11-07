@@ -71,13 +71,14 @@ export async function reconcileOfferwallggConversion(txId: string): Promise<Reco
   }
   if (!payload || typeof payload !== "object") throw new OfferwallggReconciliationError("api_invalid_payload");
   const body = payload as { success?: unknown; data?: { conversions?: unknown } };
-  if (body.success !== true || !Array.isArray(body.data?.conversions)) {
+  const conversions = body.data?.conversions;
+  if (body.success !== true || !Array.isArray(conversions)) {
     throw new OfferwallggReconciliationError("api_invalid_payload");
   }
-  if (body.data.conversions.length === 0) return null;
-  if (body.data.conversions.length !== 1) throw new OfferwallggReconciliationError("api_ambiguous");
+  if (conversions.length === 0) return null;
+  if (conversions.length !== 1) throw new OfferwallggReconciliationError("api_ambiguous");
 
-  const row = body.data.conversions[0] as Record<string, unknown>;
+  const row = conversions[0] as Record<string, unknown>;
   if (!row || row.transactionId !== txId || typeof row.userId !== "string" ||
       !["pending", "credited", "rejected", "reversed"].includes(String(row.status))) {
     throw new OfferwallggReconciliationError("api_invalid_conversion");
