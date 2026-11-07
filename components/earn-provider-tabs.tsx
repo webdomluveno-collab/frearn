@@ -6,10 +6,11 @@ import { AdGemOfferWall } from "./adgem-offer-wall";
 import { CpxSurveyWall } from "./cpx-survey-wall";
 import { TheoremreachWall } from "./theoremreach-wall";
 import { TimewallWall } from "./timewall-wall";
+import { OfferwallggPreview } from "./offerwallgg-preview";
 import { Badge } from "./fx/primitives";
 import { Icon } from "./fx/icon";
 
-type ProviderKey = "surveys" | "offers" | "timewall" | "theoremreach";
+type ProviderKey = "surveys" | "offers" | "timewall" | "theoremreach" | "offerwallgg";
 
 interface EarnTab {
   key: ProviderKey;
@@ -29,6 +30,8 @@ const THEOREMREACH_TAB: EarnTab = {
   hash: "#theoremreach",
 };
 
+const OFFERWALLGG_PREVIEW_TAB: EarnTab = { key: "offerwallgg", label: "Offerwall.GG Preview", hash: "#offerwallgg" };
+
 function tabForHash(tabs: EarnTab[], hash: string): ProviderKey {
   return tabs.find((t) => t.hash === hash)?.key ?? "surveys";
 }
@@ -44,8 +47,8 @@ function tabForHash(tabs: EarnTab[], hash: string): ProviderKey {
  * TimeWall is live for all authenticated users: its wall URL is minted
  * server-side per session and opened in a new tab.
  */
-export function EarnProviderTabs({ cpxLive, theoremreachLive = false }: { cpxLive: boolean; theoremreachLive?: boolean }) {
-  const TABS = useMemo(() => (theoremreachLive ? [...BASE_TABS, THEOREMREACH_TAB] : BASE_TABS), [theoremreachLive]);
+export function EarnProviderTabs({ cpxLive, theoremreachLive = false, offerwallggPreview = false }: { cpxLive: boolean; theoremreachLive?: boolean; offerwallggPreview?: boolean }) {
+  const TABS = useMemo(() => [...BASE_TABS, ...(theoremreachLive ? [THEOREMREACH_TAB] : []), ...(offerwallggPreview ? [OFFERWALLGG_PREVIEW_TAB] : [])], [theoremreachLive, offerwallggPreview]);
   const [selected, setSelected] = useState<ProviderKey>("surveys");
   const tabRefs = useRef<Array<HTMLButtonElement | null>>([]);
 
@@ -100,7 +103,7 @@ export function EarnProviderTabs({ cpxLive, theoremreachLive = false }: { cpxLiv
               className={selected === t.key ? "selected" : ""}
             >
               <Icon name={t.key === "surveys" || t.key === "theoremreach" ? "survey" : t.key === "timewall" ? "task" : "game"} size={18} />
-              <span className="provider-tab-copy"><strong>{t.label}</strong><small>{t.key === "surveys" ? "Share your perspective" : t.key === "offers" ? "Discover something new" : t.key === "theoremreach" ? "Take surveys and earn" : "Little tasks, more possibilities"}</small></span>
+              <span className="provider-tab-copy"><strong>{t.label}</strong><small>{t.key === "surveys" ? "Share your perspective" : t.key === "offers" ? "Discover something new" : t.key === "theoremreach" ? "Take surveys and earn" : t.key === "offerwallgg" ? "Admin-only, no rewards" : "Little tasks, more possibilities"}</small></span>
               <Icon name="chevron" size={17} />
             </button>
           ))}
@@ -145,6 +148,11 @@ export function EarnProviderTabs({ cpxLive, theoremreachLive = false }: { cpxLiv
               </div>
             </div>
             <TheoremreachWall />
+          </section>
+        ) : selected === "offerwallgg" ? (
+          <section aria-label="Offerwall.GG Preview" className="space-y-4">
+            <div className="section-title"><div><h2>Offerwall.GG Preview</h2><p>Admin preview only. No rewards are credited.</p></div></div>
+            <OfferwallggPreview />
           </section>
         ) : selected === "timewall" ? (
           <section aria-label="TimeWall" className="space-y-4">
@@ -202,6 +210,13 @@ export function EarnProviderTabs({ cpxLive, theoremreachLive = false }: { cpxLiv
             </span>
             <Icon name="external" size={17} />
           </button>
+          {offerwallggPreview && (
+            <button onClick={() => select("offerwallgg")}>
+              <span className="partner-monogram">O</span>
+              <span><strong>Offerwall.GG Preview</strong><span>Admin-only · No rewards</span></span>
+              <Icon name="external" size={17} />
+            </button>
+          )}
           {theoremreachLive && (
             <button onClick={() => select("theoremreach")}>
               <span className="partner-monogram">T</span>
