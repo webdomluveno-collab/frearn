@@ -15,7 +15,7 @@ const KEY = "0123456789abcdef0123456789abcdef";
 const SECRET = "test-secret-for-offerwallgg";
 const USER = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee";
 const TX = "e794d89342e0c468f6dd81205999425b";
-const rpc = vi.fn();
+const rpc = vi.fn(async (_name: string, _params: Record<string, unknown>) => ({ data: [] as unknown[], error: null as unknown }));
 
 afterEach(() => { vi.unstubAllGlobals(); vi.clearAllMocks(); });
 

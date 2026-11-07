@@ -2,14 +2,15 @@ import { describe, expect, it } from "vitest";
 import { apiUnits4, decimalUnits4, payoutUsdCents } from "../amounts";
 
 describe("Offerwall.GG precision without double 60% allocation", () => {
-  it.each([
+  const cases: Array<[string, bigint]> = [
     ["60", BigInt(600000)],
     ["70", BigInt(700000)],
     ["0.0001", BigInt(1)],
     ["0.42", BigInt(4200)],
     ["12.3456", BigInt(123456)],
     ["-12.3456", -BigInt(123456)],
-  ])("keeps the exact signed units in cents %s", (value, expected) => {
+  ];
+  it.each(cases)("keeps the exact signed units in cents %s", (value, expected) => {
     expect(decimalUnits4(value)).toBe(expected);
   });
   it.each(["", "0", "-0.0000", "1e3", "1.12345", "1000001", "NaN", "1,2"])("rejects invalid amount %s", (value) => {
