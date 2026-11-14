@@ -28,10 +28,12 @@ original credit. Therefore status `0` is fail-closed and returns a retryable
 obtain a provider-approved reversal binding first.
 
 The MD5 does not cover `status`, `transaction_id`, or `payout`. Therefore the
-callback route never performs automatic financial crediting. Valid callbacks
-are stored as `pending_manual_review` and return retryable 503 until AdMantum
-provides an authenticated conversion lookup, a signature contract covering
-those fields, or an equivalent replay-safe binding.
+callback route never performs automatic financial crediting. Valid callbacks are stored as `pending_manual_review` without crediting USD.
+After a successful durable insert or an idempotent duplicate outcome, the endpoint
+returns HTTP 200 with the literal body `OK` as required by AdMantum. If storage
+fails it returns a non-200 response so the provider can retry. Callback tokens
+and hashes are omitted from stored raw payloads. Additional authentication is
+still necessary before enabling automated crediting or reversing rewards.
 
 ## Feature flags
 
