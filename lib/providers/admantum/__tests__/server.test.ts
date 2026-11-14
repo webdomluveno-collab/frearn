@@ -16,7 +16,7 @@ function withEnv(vars: Record<string, string | undefined>, run: () => void) {
 
 describe("AdMantum server signing", () => {
   it("uses the documented MD5 concatenation and timing-safe verification", () => {
-    withEnv({ ADMANTUM_APP_ID: "987654", ADMANTUM_SECRET_KEY: "secret" }, () => {
+    withEnv({ ADMANTUM_APP_ID: "987654", ADMANTUM_SECRET_KEY: "secret", ADMANTUM_CALLBACK_TOKEN: "token" }, () => {
       const hash = admantumCallbackHash(UID, "offer-1", "60");
       expect(verifyAdmantumCallback({ userId: UID, offerId: "offer-1", virtualCurrency: "60", transactionId: "tx-1", hash })).toBe(true);
       expect(verifyAdmantumCallback({ userId: UID, offerId: "offer-1", virtualCurrency: "61", transactionId: "tx-1", hash })).toBe(false);

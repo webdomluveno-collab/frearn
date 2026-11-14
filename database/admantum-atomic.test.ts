@@ -54,6 +54,15 @@ describe("AdMantum migration 020 atomic credit", () => {
     expect((await db.query<{ n: number }>("select count(*)::int as n from ledger_transactions")).rows[0].n).toBe(0);
   });
 
+  it("records a reversal for manual review without creating a debit", async () => {
+    const result = (await db.query<{ outcome: string }>(
+      "select * from record_admantum_pending($1::uuid,$2::text,$3::text,$4::bigint,$5::text,$6::jsonb)",
+      [UID, "reversal-event-1", "reversed", 60, "offer-1", JSON.stringify({ status: "0" })]
+    )).rows[0];
+    expect(result.outcome).toBe("pending_manual_review");
+    expect((await db.query<{ n: number }>("select count(*)::int as n from ledger_transactions")).rows[0].n).toBe(0);
+  });
+
   it("keeps historical ledger records and supports fractional-free 60/70 values", async () => {
     await db.query("insert into ledger_transactions(user_id,type,status,amount_cents,description,idempotency_key,provider,provider_transaction_id) values ($1,'offer_reward','confirmed',70,'historical','historical:70','legacy','legacy-70')", [UID]);
     expect(await credit("admantum-60", 60)).toMatchObject({ outcome: "credited" });

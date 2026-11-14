@@ -7,23 +7,24 @@ import { admantumCallbackHash } from "../server";
 
 const UID = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee";
 const SECRET = "admantum-test-secret";
+const TOKEN = "admantum-callback-token";
 const TX = "admantum-tx-1";
 const rpc = vi.fn(async () => ({ data: [{ outcome: "credited", ledger_id: "ledger-1" }], error: null }));
 
 function env(run: () => Promise<void>) {
-  const previous = { id: process.env.ADMANTUM_APP_ID, secret: process.env.ADMANTUM_SECRET_KEY, postback: process.env.ADMANTUM_POSTBACK_ENABLED, reward: process.env.ADMANTUM_REWARD_PROCESSING_ENABLED, authenticity: process.env.ADMANTUM_AUTHENTICITY_CONFIRMED };
+  const previous = { id: process.env.ADMANTUM_APP_ID, secret: process.env.ADMANTUM_SECRET_KEY, token: process.env.ADMANTUM_CALLBACK_TOKEN, postback: process.env.ADMANTUM_POSTBACK_ENABLED, reward: process.env.ADMANTUM_REWARD_PROCESSING_ENABLED };
   process.env.ADMANTUM_APP_ID = "987654";
   process.env.ADMANTUM_SECRET_KEY = SECRET;
+  process.env.ADMANTUM_CALLBACK_TOKEN = TOKEN;
   process.env.ADMANTUM_POSTBACK_ENABLED = "true";
   process.env.ADMANTUM_REWARD_PROCESSING_ENABLED = "true";
-  process.env.ADMANTUM_AUTHENTICITY_CONFIRMED = "true";
   return run().finally(() => {
-    for (const [key, value] of [["ADMANTUM_APP_ID", previous.id], ["ADMANTUM_SECRET_KEY", previous.secret], ["ADMANTUM_POSTBACK_ENABLED", previous.postback], ["ADMANTUM_REWARD_PROCESSING_ENABLED", previous.reward], ["ADMANTUM_AUTHENTICITY_CONFIRMED", previous.authenticity]] as const) value === undefined ? delete process.env[key] : (process.env[key] = value);
+    for (const [key, value] of [["ADMANTUM_APP_ID", previous.id], ["ADMANTUM_SECRET_KEY", previous.secret], ["ADMANTUM_CALLBACK_TOKEN", previous.token], ["ADMANTUM_POSTBACK_ENABLED", previous.postback], ["ADMANTUM_REWARD_PROCESSING_ENABLED", previous.reward]] as const) value === undefined ? delete process.env[key] : (process.env[key] = value);
   });
 }
 
 function request(overrides: Record<string, string> = {}) {
-  const values: Record<string, string> = { uid: UID, virtual_currency: "60", transaction_id: TX, status: "1", of_id: "offer-1", ...overrides };
+  const values: Record<string, string> = { uid: UID, virtual_currency: "60", transaction_id: TX, status: "1", of_id: "offer-1", token: TOKEN, ...overrides };
   if (!overrides.hash) values.hash = admantumCallbackHash(values.uid, values.of_id, values.virtual_currency);
   return new Request("https://freearn.online/api/postbacks/admantum", {
     method: "POST", headers: { "content-type": "application/x-www-form-urlencoded" }, body: new URLSearchParams(values),
@@ -31,12 +32,12 @@ function request(overrides: Record<string, string> = {}) {
 }
 
 describe("AdMantum postback safety", () => {
-  it("credits 60 virtual units as 60 user cents and never multiplies by 60%", async () => {
+  it("places a verified callback into manual review without financial crediting", async () => {
     await env(async () => {
       vi.mocked(getSupabaseAdmin).mockReturnValue({ rpc } as never);
       const response = await POST(request());
-      expect(response.status).toBe(200);
-      expect(rpc).toHaveBeenCalledWith("process_admantum_credit", expect.objectContaining({ p_virtual_currency: "60", p_reward_cents: "60", p_publisher_revenue_cents: 100 }));
+      expect(response.status).toBe(503);
+      expect(rpc).toHaveBeenCalledWith("record_admantum_pending", expect.objectContaining({ p_virtual_currency: "60", p_status: "credited" }));
     });
   });
 
@@ -54,7 +55,7 @@ describe("AdMantum postback safety", () => {
       rpc.mockClear();
       const response = await POST(request({ status: "0", transaction_id: "new-reversal-id" }));
       expect(response.status).toBe(503);
-      expect(rpc).not.toHaveBeenCalled();
+      expect(rpc).toHaveBeenCalledWith("record_admantum_pending", expect.objectContaining({ p_status: "reversed" }));
     });
   });
 });

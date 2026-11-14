@@ -13,21 +13,28 @@ function secretKey(): string | null {
   return process.env.ADMANTUM_SECRET_KEY?.trim() || null;
 }
 
+function callbackToken(): string | null {
+  return process.env.ADMANTUM_CALLBACK_TOKEN?.trim() || null;
+}
+
 export function isAdmantumConfigured(): boolean {
   return appId() !== null && secretKey() !== null;
 }
 
 export function isAdmantumPostbackEnabled(): boolean {
-  return process.env.ADMANTUM_POSTBACK_ENABLED === "true" && isAdmantumConfigured();
+  return process.env.ADMANTUM_POSTBACK_ENABLED === "true" && isAdmantumConfigured() && callbackToken() !== null;
 }
 
 export function isAdmantumRewardProcessingEnabled(): boolean {
-  // The documented MD5 does not cover status or transaction_id. Keep money
-  // disabled until an additional provider-authenticated binding is confirmed.
-  return (
-    process.env.ADMANTUM_REWARD_PROCESSING_ENABLED === "true" &&
-    process.env.ADMANTUM_AUTHENTICITY_CONFIRMED === "true"
-  );
+  return process.env.ADMANTUM_REWARD_PROCESSING_ENABLED === "true";
+}
+
+export function verifyAdmantumCallbackToken(value: string): boolean {
+  const expected = callbackToken();
+  if (!expected || !value) return false;
+  const a = Buffer.from(value, "utf8");
+  const b = Buffer.from(expected, "utf8");
+  return a.length === b.length && timingSafeEqual(a, b);
 }
 
 export function isAdmantumWallEnabledForUser(userId: string | null): boolean {

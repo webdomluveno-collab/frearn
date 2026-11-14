@@ -28,15 +28,17 @@ original credit. Therefore status `0` is fail-closed and returns a retryable
 obtain a provider-approved reversal binding first.
 
 The MD5 does not cover `status`, `transaction_id`, or `payout`. Therefore the
-financial gate also requires `ADMANTUM_AUTHENTICITY_CONFIRMED=true`, which must
-remain false until AdMantum provides an authenticated conversion lookup,
-signature contract covering those fields, or an equivalent replay-safe binding.
+callback route never performs automatic financial crediting. Valid callbacks
+are stored as `pending_manual_review` and return retryable 503 until AdMantum
+provides an authenticated conversion lookup, a signature contract covering
+those fields, or an equivalent replay-safe binding.
 
 ## Feature flags
 
 All are default-off:
 
 - `ADMANTUM_ENABLED`
+- `ADMANTUM_CALLBACK_TOKEN`
 - `ADMANTUM_POSTBACK_ENABLED`
 - `ADMANTUM_REWARD_PROCESSING_ENABLED`
 
