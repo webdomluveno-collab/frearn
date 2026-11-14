@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { rateLimit } from "@/lib/rate-limit";
 import { isOfferwallApiPostbackEnabled, verifyOfferwallApiSignature } from "@/lib/providers/offerwallapi/server";
 
-const ok = () => new NextResponse("1", { status: 200, headers: { "Content-Type": "text/plain", "Cache-Control": "no-store" } });
+const ok = () => new NextResponse("ok", { status: 200, headers: { "Content-Type": "text/plain", "Cache-Control": "no-store" } });
 const fail = (status: number) => new NextResponse("0", { status, headers: { "Content-Type": "text/plain", "Cache-Control": "no-store" } });
 
 function mergedParams(request: Request, body: string): URLSearchParams | null {

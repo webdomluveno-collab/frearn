@@ -33,7 +33,7 @@ export function verifyOfferwallApiSignature(input: {
   signature: string;
 }): boolean {
   if (!secretKey() || !isUuid(input.subId)) return false;
-  if (!/^[A-Za-z0-9_-]{1,128}$/.test(input.transId)) return false;
+  if (!/^[A-Za-z0-9_:-]{1,128}$/.test(input.transId)) return false;
   if (!/^(?:0|[1-9][0-9]*)(?:\.[0-9]{1,6})?$/.test(input.reward)) return false;
   if (!/^[a-f0-9]{64}$/i.test(input.signature)) return false;
   const expected = Buffer.from(offerwallApiSignature(input.subId, input.transId, input.reward), "ascii");

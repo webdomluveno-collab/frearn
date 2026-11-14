@@ -51,8 +51,18 @@ describe("OfferwallApi safe callback foundation", () => {
 
   it("authenticates debug traffic but never acknowledges live money callbacks", async () => {
     await withSecret(async () => {
-      expect((await POST(request({ debug: "1" }))).status).toBe(200);
+      const response = await POST(request({ debug: "1" }));
+      expect(response.status).toBe(200);
+      expect(await response.text()).toBe("ok");
       expect((await POST(request({ debug: "0" }))).status).toBe(503);
+    });
+  });
+
+  it("accepts the documented task: transaction ID without enabling live crediting", async () => {
+    await withSecret(async () => {
+      const response = await POST(request({ transId: "task:offer-123", debug: "1", signature2: offerwallApiSignature(UID, "task:offer-123", "60") }));
+      expect(response.status).toBe(200);
+      expect(await response.text()).toBe("ok");
     });
   });
 
