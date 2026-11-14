@@ -43,3 +43,12 @@ All are default-off:
 - `ADMANTUM_REWARD_PROCESSING_ENABLED`
 
 No production flag is enabled by this change.
+
+## Postback URL template
+
+```text
+https://freearn.online/api/providers/admantum/postback?uid={uid}&virtual_currency={virtual_currency}&transaction_id={transaction_id}&status={status}&of_id={of_id}&hash={hash}&payout={payout}&currency={currency}&token=<ADMANTUM_CALLBACK_TOKEN>
+```
+
+The token is an operator-generated static secret configured in AdMantum and
+`ADMANTUM_CALLBACK_TOKEN`; it is never logged or placed in source code.

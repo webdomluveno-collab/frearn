@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("@/lib/auth/server", () => ({ getSupabaseAdmin: vi.fn() }));
 import { getSupabaseAdmin } from "@/lib/auth/server";
@@ -9,7 +9,12 @@ const UID = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee";
 const SECRET = "admantum-test-secret";
 const TOKEN = "admantum-callback-token";
 const TX = "admantum-tx-1";
-const rpc = vi.fn(async () => ({ data: [{ outcome: "credited", ledger_id: "ledger-1" }], error: null }));
+const rpc = vi.fn(async () => ({ data: [{ outcome: "pending_manual_review" }], error: null }));
+
+beforeEach(() => {
+  rpc.mockReset();
+  rpc.mockResolvedValue({ data: [{ outcome: "pending_manual_review" }], error: null });
+});
 
 function env(run: () => Promise<void>) {
   const previous = { id: process.env.ADMANTUM_APP_ID, secret: process.env.ADMANTUM_SECRET_KEY, token: process.env.ADMANTUM_CALLBACK_TOKEN, postback: process.env.ADMANTUM_POSTBACK_ENABLED, reward: process.env.ADMANTUM_REWARD_PROCESSING_ENABLED };
@@ -36,8 +41,19 @@ describe("AdMantum postback safety", () => {
     await env(async () => {
       vi.mocked(getSupabaseAdmin).mockReturnValue({ rpc } as never);
       const response = await POST(request());
-      expect(response.status).toBe(503);
+      expect(response.status).toBe(200);
       expect(rpc).toHaveBeenCalledWith("record_admantum_pending", expect.objectContaining({ p_virtual_currency: "60", p_status: "credited" }));
+    });
+  });
+
+  it("acknowledges a repeated callback without creating another review record", async () => {
+    await env(async () => {
+      rpc.mockResolvedValueOnce({ data: [{ outcome: "pending_manual_review" }], error: null });
+      rpc.mockResolvedValueOnce({ data: [{ outcome: "duplicate" }], error: null });
+      vi.mocked(getSupabaseAdmin).mockReturnValue({ rpc } as never);
+      expect((await POST(request())).status).toBe(200);
+      expect((await POST(request())).status).toBe(200);
+      expect(rpc).toHaveBeenCalledTimes(2);
     });
   });
 
@@ -50,11 +66,11 @@ describe("AdMantum postback safety", () => {
     });
   });
 
-  it("fails closed on reversal because AdMantum supplies no original transaction binding", async () => {
+  it("acknowledges reversal after storing it for manual review", async () => {
     await env(async () => {
       rpc.mockClear();
       const response = await POST(request({ status: "0", transaction_id: "new-reversal-id" }));
-      expect(response.status).toBe(503);
+      expect(response.status).toBe(200);
       expect(rpc).toHaveBeenCalledWith("record_admantum_pending", expect.objectContaining({ p_status: "reversed" }));
     });
   });

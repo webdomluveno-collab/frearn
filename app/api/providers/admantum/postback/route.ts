@@ -51,7 +51,8 @@ export async function POST(request: Request) {
       p_raw_payload: Object.fromEntries(params.entries()),
     });
     if (error || !Array.isArray(data) || data.length !== 1) return fail(503);
-    return fail(503);
+    const outcome = (data[0] as { outcome?: unknown }).outcome;
+    return outcome === "pending_manual_review" || outcome === "duplicate" ? ok() : fail(503);
   } catch {
     return fail(503);
   }
