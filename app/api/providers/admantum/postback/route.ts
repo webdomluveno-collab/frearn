@@ -5,7 +5,7 @@ import { parseAdmantumVirtualCurrency } from "@/lib/providers/admantum/amounts";
 import { isAdmantumPostbackEnabled, verifyAdmantumCallback, verifyAdmantumCallbackToken } from "@/lib/providers/admantum/server";
 
 const fail = (status: number) => new NextResponse("0", { status, headers: { "Content-Type": "text/plain", "Cache-Control": "no-store" } });
-const ok = () => new NextResponse("1", { status: 200, headers: { "Content-Type": "text/plain", "Cache-Control": "no-store" } });
+const ok = () => new NextResponse("OK", { status: 200, headers: { "Content-Type": "text/plain", "Cache-Control": "no-store" } });
 
 export async function POST(request: Request) {
   if (!isAdmantumPostbackEnabled()) return fail(503);
@@ -39,6 +39,11 @@ export async function POST(request: Request) {
   if (!verifyAdmantumCallbackToken(token)) return fail(403);
   if (!verifyAdmantumCallback({ userId, offerId, virtualCurrency, transactionId, hash })) return fail(403);
 
+  // Never persist the shared callback token or signature in audit payloads.
+  const auditParams = new URLSearchParams(params);
+  auditParams.delete("token");
+  auditParams.delete("hash");
+
   const units = parseAdmantumVirtualCurrency(virtualCurrency);
   if (units === null) return fail(400);
   try {
@@ -48,7 +53,7 @@ export async function POST(request: Request) {
       p_status: status === "1" ? "credited" : "reversed",
       p_virtual_currency: units.toString(),
       p_offer_id: offerId,
-      p_raw_payload: Object.fromEntries(params.entries()),
+      p_raw_payload: Object.fromEntries(auditParams.entries()),
     });
     if (error || !Array.isArray(data) || data.length !== 1) return fail(503);
     const outcome = (data[0] as { outcome?: unknown }).outcome;
