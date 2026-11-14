@@ -6,9 +6,13 @@ const UID = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee";
 const SECRET = "offerwallapi-test-secret";
 
 function withSecret(run: () => Promise<void>) {
-  const previous = process.env.OFFERWALLAPI_SECRET_KEY;
+  const previous = { secret: process.env.OFFERWALLAPI_SECRET_KEY, enabled: process.env.OFFERWALLAPI_POSTBACK_ENABLED };
   process.env.OFFERWALLAPI_SECRET_KEY = SECRET;
-  return run().finally(() => previous === undefined ? delete process.env.OFFERWALLAPI_SECRET_KEY : (process.env.OFFERWALLAPI_SECRET_KEY = previous));
+  process.env.OFFERWALLAPI_POSTBACK_ENABLED = "true";
+  return run().finally(() => {
+    previous.secret === undefined ? delete process.env.OFFERWALLAPI_SECRET_KEY : (process.env.OFFERWALLAPI_SECRET_KEY = previous.secret);
+    previous.enabled === undefined ? delete process.env.OFFERWALLAPI_POSTBACK_ENABLED : (process.env.OFFERWALLAPI_POSTBACK_ENABLED = previous.enabled);
+  });
 }
 
 function request(overrides: Record<string, string> = {}) {

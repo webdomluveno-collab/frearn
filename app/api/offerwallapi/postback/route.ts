@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { rateLimit } from "@/lib/rate-limit";
-import { isOfferwallApiConfigured, verifyOfferwallApiSignature } from "@/lib/providers/offerwallapi/server";
+import { isOfferwallApiPostbackEnabled, verifyOfferwallApiSignature } from "@/lib/providers/offerwallapi/server";
 
 const ok = () => new NextResponse("1", { status: 200, headers: { "Content-Type": "text/plain", "Cache-Control": "no-store" } });
 const fail = (status: number) => new NextResponse("0", { status, headers: { "Content-Type": "text/plain", "Cache-Control": "no-store" } });
@@ -26,7 +26,7 @@ export async function GET() {
 export async function POST(request: Request) {
   const ip = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "unknown";
   if (!rateLimit(`offerwallapi:${ip}`, 60, 60_000)) return fail(429);
-  if (!isOfferwallApiConfigured()) return fail(503);
+  if (!isOfferwallApiPostbackEnabled()) return fail(503);
   const type = request.headers.get("content-type")?.toLowerCase() ?? "";
   if (type && !type.startsWith("application/x-www-form-urlencoded")) return fail(415);
   const contentLength = Number(request.headers.get("content-length") ?? "0");

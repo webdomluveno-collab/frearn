@@ -11,6 +11,10 @@ export function isOfferwallApiConfigured(): boolean {
   return secretKey() !== null;
 }
 
+export function isOfferwallApiPostbackEnabled(): boolean {
+  return process.env.OFFERWALLAPI_POSTBACK_ENABLED === "true" && isOfferwallApiConfigured();
+}
+
 /** HMAC-SHA256 over the exact concatenated subId + transId + reward values. */
 export function offerwallApiSignature(subId: string, transId: string, reward: string): string {
   const secret = secretKey();
