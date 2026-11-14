@@ -11,13 +11,14 @@ const TX = "admantum-tx-1";
 const rpc = vi.fn(async () => ({ data: [{ outcome: "credited", ledger_id: "ledger-1" }], error: null }));
 
 function env(run: () => Promise<void>) {
-  const previous = { id: process.env.ADMANTUM_PUBLISHER_ID, secret: process.env.ADMANTUM_SECRET_KEY, postback: process.env.ADMANTUM_POSTBACK_ENABLED, reward: process.env.ADMANTUM_REWARD_PROCESSING_ENABLED };
-  process.env.ADMANTUM_PUBLISHER_ID = "451398";
+  const previous = { id: process.env.ADMANTUM_APP_ID, secret: process.env.ADMANTUM_SECRET_KEY, postback: process.env.ADMANTUM_POSTBACK_ENABLED, reward: process.env.ADMANTUM_REWARD_PROCESSING_ENABLED, authenticity: process.env.ADMANTUM_AUTHENTICITY_CONFIRMED };
+  process.env.ADMANTUM_APP_ID = "987654";
   process.env.ADMANTUM_SECRET_KEY = SECRET;
   process.env.ADMANTUM_POSTBACK_ENABLED = "true";
   process.env.ADMANTUM_REWARD_PROCESSING_ENABLED = "true";
+  process.env.ADMANTUM_AUTHENTICITY_CONFIRMED = "true";
   return run().finally(() => {
-    for (const [key, value] of [["ADMANTUM_PUBLISHER_ID", previous.id], ["ADMANTUM_SECRET_KEY", previous.secret], ["ADMANTUM_POSTBACK_ENABLED", previous.postback], ["ADMANTUM_REWARD_PROCESSING_ENABLED", previous.reward]] as const) value === undefined ? delete process.env[key] : (process.env[key] = value);
+    for (const [key, value] of [["ADMANTUM_APP_ID", previous.id], ["ADMANTUM_SECRET_KEY", previous.secret], ["ADMANTUM_POSTBACK_ENABLED", previous.postback], ["ADMANTUM_REWARD_PROCESSING_ENABLED", previous.reward], ["ADMANTUM_AUTHENTICITY_CONFIRMED", previous.authenticity]] as const) value === undefined ? delete process.env[key] : (process.env[key] = value);
   });
 }
 

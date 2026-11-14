@@ -10,12 +10,20 @@ const ok = () => new NextResponse("1", { status: 200, headers: { "Content-Type":
 export async function POST(request: Request) {
   if (!isAdmantumPostbackEnabled()) return fail(503);
   const type = request.headers.get("content-type")?.toLowerCase() ?? "";
-  if (!type.startsWith("application/x-www-form-urlencoded")) return fail(415);
+  const urlParams = new URL(request.url).searchParams;
+  if (type && !type.startsWith("application/x-www-form-urlencoded")) return fail(415);
   const contentLength = Number(request.headers.get("content-length") ?? "0");
   if (contentLength > 16_384) return fail(413);
   const body = await request.text();
   if (body.length > 16_384) return fail(413);
-  const params = new URLSearchParams(body);
+  const bodyParams = new URLSearchParams(body);
+  const params = new URLSearchParams();
+  const names = new Set([...urlParams.keys(), ...bodyParams.keys()]);
+  for (const name of names) {
+    const values = [...urlParams.getAll(name), ...bodyParams.getAll(name)];
+    if (values.length !== 1) return fail(400);
+    params.set(name, values[0]);
+  }
   const userId = params.get("uid") ?? "";
   const virtualCurrency = params.get("virtual_currency") ?? "";
   const transactionId = params.get("transaction_id") ?? "";

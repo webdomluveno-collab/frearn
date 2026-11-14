@@ -21,7 +21,7 @@ function withEnv(vars: Record<string, string | undefined>, run: () => Promise<vo
 
 describe("AdMantum wall route", () => {
   it("requires authentication and the explicit feature flag", async () => {
-    await withEnv({ ADMANTUM_PUBLISHER_ID: "451398", ADMANTUM_ENABLED: undefined }, async () => {
+    await withEnv({ ADMANTUM_APP_ID: "987654", ADMANTUM_ENABLED: undefined }, async () => {
       vi.mocked(getSessionUser).mockResolvedValue(null);
       expect((await GET()).status).toBe(401);
       vi.mocked(getSessionUser).mockResolvedValue({ id: UID, email: "user@example.com" });

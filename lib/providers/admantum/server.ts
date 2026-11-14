@@ -4,8 +4,8 @@ import { createHash, timingSafeEqual } from "node:crypto";
 import { isUuid } from "@/lib/providers/theoremreach/shared";
 import { isAdmantumOfferId, isAdmantumTransactionId } from "./amounts";
 
-function publisherId(): string | null {
-  const value = process.env.ADMANTUM_PUBLISHER_ID?.trim();
+function appId(): string | null {
+  const value = process.env.ADMANTUM_APP_ID?.trim();
   return value && /^[0-9]+$/.test(value) ? value : null;
 }
 
@@ -14,7 +14,7 @@ function secretKey(): string | null {
 }
 
 export function isAdmantumConfigured(): boolean {
-  return publisherId() !== null && secretKey() !== null;
+  return appId() !== null && secretKey() !== null;
 }
 
 export function isAdmantumPostbackEnabled(): boolean {
@@ -22,18 +22,23 @@ export function isAdmantumPostbackEnabled(): boolean {
 }
 
 export function isAdmantumRewardProcessingEnabled(): boolean {
-  return process.env.ADMANTUM_REWARD_PROCESSING_ENABLED === "true";
+  // The documented MD5 does not cover status or transaction_id. Keep money
+  // disabled until an additional provider-authenticated binding is confirmed.
+  return (
+    process.env.ADMANTUM_REWARD_PROCESSING_ENABLED === "true" &&
+    process.env.ADMANTUM_AUTHENTICITY_CONFIRMED === "true"
+  );
 }
 
 export function isAdmantumWallEnabledForUser(userId: string | null): boolean {
-  return process.env.ADMANTUM_ENABLED === "true" && publisherId() !== null && isUuid(userId);
+  return process.env.ADMANTUM_ENABLED === "true" && appId() !== null && isUuid(userId);
 }
 
 export function buildAdmantumWallUrl(userId: string): string {
-  const appId = publisherId();
-  if (!appId || !isUuid(userId)) throw new Error("AdMantum wall is not configured.");
+  const configuredAppId = appId();
+  if (!configuredAppId || !isUuid(userId)) throw new Error("AdMantum wall is not configured.");
   const url = new URL("https://www.admantum.com/offers");
-  url.searchParams.set("appid", appId);
+  url.searchParams.set("appid", configuredAppId);
   url.searchParams.set("uid", userId);
   return url.toString();
 }
