@@ -41,6 +41,10 @@ export function isAdmantumWallEnabledForUser(userId: string | null): boolean {
   return process.env.ADMANTUM_ENABLED === "true" && appId() !== null && isUuid(userId);
 }
 
+export function isAdmantumAdminPreviewEnabled(): boolean {
+  return process.env.ADMANTUM_ADMIN_PREVIEW_ENABLED === "true" && appId() !== null;
+}
+
 export function buildAdmantumWallUrl(userId: string): string {
   const configuredAppId = appId();
   if (!configuredAppId || !isUuid(userId)) throw new Error("AdMantum wall is not configured.");

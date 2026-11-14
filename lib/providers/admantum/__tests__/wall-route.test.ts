@@ -1,7 +1,8 @@
 import { describe, expect, it, vi } from "vitest";
 
-vi.mock("@/lib/auth/server", () => ({ getSessionUser: vi.fn() }));
+vi.mock("@/lib/auth/server", () => ({ getSessionUser: vi.fn(), isAdminEmail: vi.fn() }));
 import { getSessionUser } from "@/lib/auth/server";
+import { isAdminEmail } from "@/lib/auth/server";
 import { GET } from "@/app/api/providers/admantum/wall/route";
 
 const UID = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee";
@@ -26,6 +27,19 @@ describe("AdMantum wall route", () => {
       expect((await GET()).status).toBe(401);
       vi.mocked(getSessionUser).mockResolvedValue({ id: UID, email: "user@example.com" });
       expect((await GET()).status).toBe(503);
+    });
+  });
+
+  it("allows an admin test preview without enabling live rewards", async () => {
+    await withEnv({ ADMANTUM_APP_ID: "53190", ADMANTUM_ADMIN_PREVIEW_ENABLED: "true", ADMANTUM_ENABLED: undefined }, async () => {
+      vi.mocked(getSessionUser).mockResolvedValue({ id: UID, email: "admin@example.com" });
+      vi.mocked(isAdminEmail).mockReturnValue(true);
+      const response = await GET();
+      expect(response.status).toBe(200);
+      const data = (await response.json()) as { url: string; previewOnly: boolean };
+      expect(data.previewOnly).toBe(true);
+      expect(new URL(data.url).searchParams.get("appid")).toBe("53190");
+      expect(new URL(data.url).searchParams.get("uid")).toBe(UID);
     });
   });
 });

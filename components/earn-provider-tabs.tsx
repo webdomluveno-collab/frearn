@@ -32,6 +32,7 @@ const THEOREMREACH_TAB: EarnTab = {
 const OFFERWALLGG_PREVIEW_TAB: EarnTab = { key: "offerwallgg", label: "Offerwall.GG Preview", hash: "#offerwallgg" };
 const OFFERWALLGG_LIVE_TAB: EarnTab = { key: "offerwallgg", label: "Offerwall.GG", hash: "#offerwallgg" };
 const ADMANTUM_TAB: EarnTab = { key: "admantum", label: "AdMantum", hash: "#admantum" };
+const ADMANTUM_PREVIEW_TAB: EarnTab = { key: "admantum", label: "AdMantum Test Preview", hash: "#admantum" };
 
 function tabForHash(tabs: EarnTab[], hash: string): ProviderKey {
   // The old empty AdGem tab is retired. Preserve existing #offers bookmarks.
@@ -50,8 +51,8 @@ function tabForHash(tabs: EarnTab[], hash: string): ProviderKey {
  * TimeWall is live for all authenticated users: its wall URL is minted
  * server-side per session and opened in a new tab.
  */
-export function EarnProviderTabs({ cpxLive, theoremreachLive = false, offerwallggPreview = false, offerwallggLive = false, admantumLive = false }: { cpxLive: boolean; theoremreachLive?: boolean; offerwallggPreview?: boolean; offerwallggLive?: boolean; admantumLive?: boolean }) {
-  const TABS = useMemo(() => [BASE_TABS[0], ...(offerwallggLive ? [OFFERWALLGG_LIVE_TAB] : offerwallggPreview ? [OFFERWALLGG_PREVIEW_TAB] : []), ...(admantumLive ? [ADMANTUM_TAB] : []), BASE_TABS[1], ...(theoremreachLive ? [THEOREMREACH_TAB] : [])], [theoremreachLive, offerwallggPreview, offerwallggLive, admantumLive]);
+export function EarnProviderTabs({ cpxLive, theoremreachLive = false, offerwallggPreview = false, offerwallggLive = false, admantumLive = false, admantumPreview = false }: { cpxLive: boolean; theoremreachLive?: boolean; offerwallggPreview?: boolean; offerwallggLive?: boolean; admantumLive?: boolean; admantumPreview?: boolean }) {
+  const TABS = useMemo(() => [BASE_TABS[0], ...(offerwallggLive ? [OFFERWALLGG_LIVE_TAB] : offerwallggPreview ? [OFFERWALLGG_PREVIEW_TAB] : []), ...(admantumLive ? [ADMANTUM_TAB] : admantumPreview ? [ADMANTUM_PREVIEW_TAB] : []), BASE_TABS[1], ...(theoremreachLive ? [THEOREMREACH_TAB] : [])], [theoremreachLive, offerwallggPreview, offerwallggLive, admantumLive, admantumPreview]);
   const [selected, setSelected] = useState<ProviderKey>("surveys");
   const tabRefs = useRef<Array<HTMLButtonElement | null>>([]);
 
@@ -154,7 +155,7 @@ export function EarnProviderTabs({ cpxLive, theoremreachLive = false, offerwallg
           </section>
         ) : selected === "admantum" ? (
           <section aria-label="AdMantum" className="space-y-4">
-            <div className="section-title"><div><h2>AdMantum</h2><p>Offers and surveys to earn USD rewards.</p></div></div>
+            <div className="section-title"><div><h2>{admantumLive ? "AdMantum" : "AdMantum Test Preview"}</h2><p>{admantumLive ? "Offers and surveys to earn USD rewards." : "Admin test preview. Automatic rewards remain disabled."}</p></div></div>
             <AdmantumWall />
           </section>
         ) : selected === "offerwallgg" ? (
@@ -199,10 +200,10 @@ export function EarnProviderTabs({ cpxLive, theoremreachLive = false, offerwallg
               <Icon name="external" size={17} />
             </button>
           )}
-          {admantumLive && (
+          {(admantumLive || admantumPreview) && (
             <button onClick={() => select("admantum")}>
               <span className="partner-monogram">A</span>
-              <span><strong>AdMantum</strong><span>Offers and surveys · Available now</span></span>
+              <span><strong>{admantumLive ? "AdMantum" : "AdMantum Test Preview"}</strong><span>{admantumLive ? "Offers and surveys · Available now" : "Admin-only · Rewards disabled"}</span></span>
               <Icon name="external" size={17} />
             </button>
           )}
