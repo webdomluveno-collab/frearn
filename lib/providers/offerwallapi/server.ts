@@ -12,7 +12,11 @@ export function isOfferwallApiConfigured(): boolean {
 }
 
 export function isOfferwallApiPostbackEnabled(): boolean {
-  return process.env.OFFERWALLAPI_POSTBACK_ENABLED === "true" && isOfferwallApiConfigured();
+  return (
+    process.env.OFFERWALLAPI_ENABLED === "true" &&
+    process.env.OFFERWALLAPI_POSTBACK_ENABLED === "true" &&
+    isOfferwallApiConfigured()
+  );
 }
 
 /** HMAC-SHA256 over the exact concatenated subId + transId + reward values. */

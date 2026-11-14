@@ -6,12 +6,14 @@ const UID = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee";
 const SECRET = "offerwallapi-test-secret";
 
 function withSecret(run: () => Promise<void>) {
-  const previous = { secret: process.env.OFFERWALLAPI_SECRET_KEY, enabled: process.env.OFFERWALLAPI_POSTBACK_ENABLED };
+  const previous = { secret: process.env.OFFERWALLAPI_SECRET_KEY, enabled: process.env.OFFERWALLAPI_ENABLED, postback: process.env.OFFERWALLAPI_POSTBACK_ENABLED };
   process.env.OFFERWALLAPI_SECRET_KEY = SECRET;
+  process.env.OFFERWALLAPI_ENABLED = "true";
   process.env.OFFERWALLAPI_POSTBACK_ENABLED = "true";
   return run().finally(() => {
     previous.secret === undefined ? delete process.env.OFFERWALLAPI_SECRET_KEY : (process.env.OFFERWALLAPI_SECRET_KEY = previous.secret);
-    previous.enabled === undefined ? delete process.env.OFFERWALLAPI_POSTBACK_ENABLED : (process.env.OFFERWALLAPI_POSTBACK_ENABLED = previous.enabled);
+    previous.enabled === undefined ? delete process.env.OFFERWALLAPI_ENABLED : (process.env.OFFERWALLAPI_ENABLED = previous.enabled);
+    previous.postback === undefined ? delete process.env.OFFERWALLAPI_POSTBACK_ENABLED : (process.env.OFFERWALLAPI_POSTBACK_ENABLED = previous.postback);
   });
 }
 
